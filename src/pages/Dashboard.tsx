@@ -34,16 +34,22 @@ const Dashboard = () => {
   }, [fetchData]);
 
   // Robust lookup: handles nested objects, snake_case, and camelCase
-  const getStatusName = (ticket: any) => {
-    const id = ticket.status_id || ticket.statusId || (typeof ticket.status === 'object' ? ticket.status?.id : null);
-    if (!id) return 'Unknown';
-    return statuses.find(s => String(s.id).toLowerCase() === String(id).toLowerCase())?.name || 'Unknown';
+  const getStatusName = (t: any): string => {
+    if (typeof t.status === 'string') return t.status;
+    if (t.status?.name) return t.status.name;
+
+    const id = t.status_id || t.statusId || t.status?.id;
+    if (id) {
+      const match = statuses.find(s => String(s.id).toLowerCase() === String(id).toLowerCase());
+      if (match) return match.name;
+    }
+    return 'Unknown';
   };
 
-  const getUserName = (idOrObj: any) => {
-    // Handle if backend returns the whole object instead of just the UUID
-    const id = typeof idOrObj === 'object' ? idOrObj?.id : idOrObj;
-    if (!id) return 'Unassigned';
+  const getUserName = (input: any): string => {
+    if (!input) return 'Unassigned';
+    if (typeof input === 'object' && input.name) return input.name;
+    const id = typeof input === 'object' ? input.id : input;
     return users.find(u => String(u.id).toLowerCase() === String(id).toLowerCase())?.name || 'Unknown User';
   };
 

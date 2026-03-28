@@ -11,14 +11,24 @@ interface Props {
 const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users }: Props) => {
   if (!isOpen) return null;
 
-  const getStatusName = (t: any) => {
-    const id = t.status_id || t.statusId || (typeof t.status === 'object' ? t.status?.id : null);
-    if (!id) return 'Unknown';
-    return statuses.find(s => String(s.id).toLowerCase() === String(id).toLowerCase())?.name || 'Unknown';
+  const getStatusName = (t: any): string => {
+    // 1. Try to find the name directly if it's already a string or nested object
+    if (typeof t.status === 'string') return t.status;
+    if (t.status?.name) return t.status.name;
+
+    // 2. Try to find an ID and look it up in the statuses array
+    const id = t.status_id || t.statusId || t.status?.id;
+    if (id) {
+      const match = statuses.find(s => String(s.id).toLowerCase() === String(id).toLowerCase());
+      if (match) return match.name;
+    }
+    return 'Unknown';
   };
-  const getUserName = (idOrObj: any) => {
-    const id = typeof idOrObj === 'object' ? idOrObj?.id : idOrObj;
-    if (!id) return 'Unassigned';
+
+  const getUserName = (input: any): string => {
+    if (!input) return 'Unassigned';
+    if (typeof input === 'object' && input.name) return input.name;
+    const id = typeof input === 'object' ? input.id : input;
     return users.find(u => String(u.id).toLowerCase() === String(id).toLowerCase())?.name || 'Unknown User';
   };
 

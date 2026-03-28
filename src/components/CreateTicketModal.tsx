@@ -91,11 +91,10 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         priority: formData.priority,
-        // Shotgun approach: send both formats because one of them is clearly being ignored
-        status_id: formData.statusId,
-        statusId: formData.statusId,
-        assigned_to: formData.assignedTo || null,
-        assignedTo: formData.assignedTo || null 
+        // Consolidated to snake_case based on your Postman success
+        // Remove the duplicate camelCase fields which may interfere with strict backends
+        status_id: formData.statusId || null,
+        assigned_to: formData.assignedTo || null
       };
 
       await api.post('/tickets', payload);

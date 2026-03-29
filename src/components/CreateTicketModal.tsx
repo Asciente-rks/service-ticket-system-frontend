@@ -88,13 +88,12 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
     setIsSubmitting(true);
     try {
       const payload = {
-        title: formData.title.trim(),
-        description: formData.description.trim(),
+        title: formData.title,
+        description: formData.description,
         priority: formData.priority,
-        // Consolidated to snake_case based on your Postman success
-        // Remove the duplicate camelCase fields which may interfere with strict backends
-        status_id: formData.statusId || null,
-        assigned_to: formData.assignedTo || null
+        // Using 'assigneeId' as confirmed by your successful Postman test
+        statusId: formData.statusId || null,
+        assigneeId: formData.assignedTo || null 
       };
 
       await api.post('/tickets', payload);

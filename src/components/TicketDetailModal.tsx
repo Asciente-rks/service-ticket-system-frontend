@@ -6,9 +6,12 @@ interface Props {
   ticket: any; // Type assertion to bypass incomplete Ticket interface
   statuses: TicketStatus[];
   users: User[];
+  isAdmin?: boolean;
+  onApprove?: () => void;
+  onEdit?: () => void;
 }
 
-const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users }: Props) => {
+const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users, isAdmin, onApprove, onEdit }: Props) => {
   if (!isOpen) return null;
 
   const getStatusName = (t: any): string => {
@@ -16,10 +19,10 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users }: Props) 
     if (typeof t.status === 'string') return t.status;
     if (t.status?.name) return t.status.name;
 
-    // 2. Try to find an ID and look it up in the statuses array
-    const id = t.status_id || t.statusId || t.status?.id;
-    if (id) {
-      const match = statuses.find(s => String(s.id).toLowerCase() === String(id).toLowerCase());
+    // 2. Prioritize 'statusId' to match the backend foreignKey association
+    const statusId = t.statusId || t.status_id || t.status?.id;
+    if (statusId) {
+      const match = statuses.find(s => String(s.id).toLowerCase() === String(statusId).toLowerCase());
       if (match) return match.name;
     }
     return 'Unknown';
@@ -27,7 +30,14 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users }: Props) 
 
   const getUserName = (input: any): string => {
     if (!input) return 'Unassigned';
+    
+    // If the input is already a string and not a UUID, it's likely the name itself
+    if (typeof input === 'string' && input.length > 0 && !input.includes('-')) {
+      return input;
+    }
+
     if (typeof input === 'object' && input.name) return input.name;
+    
     const id = typeof input === 'object' ? input.id : input;
     return users.find(u => String(u.id).toLowerCase() === String(id).toLowerCase())?.name || 'Unknown User';
   };
@@ -42,7 +52,6 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users }: Props) 
               <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded text-[9px] font-black uppercase tracking-widest">
                 {ticket.priority}
               </span>
-              <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">ID: {ticket.id}</span>
             </div>
             <h2 className="text-3xl font-black text-white uppercase tracking-tighter">{ticket.title}</h2>
           </div>
@@ -69,16 +78,26 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users }: Props) 
             </div>
             <div>
               <label className="block text-[10px] font-black text-slate-600 uppercase mb-1 tracking-widest">Assignee</label>
-              <p className="font-bold text-indigo-400 text-sm">{getUserName(ticket.assigned_to || ticket.assignedTo || ticket.assignee)}</p>
+              <p className="font-bold text-indigo-400 text-sm">{getUserName(ticket.assignee || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to)}</p>
             </div>
           </div>
 
           <div className="space-y-6">
             <div>
               <label className="block text-[10px] font-black text-slate-600 uppercase mb-1 tracking-widest">Reporter (Created By)</label>
-              <p className="font-bold text-slate-200 text-sm">{getUserName(ticket.reported_by || ticket.reportedBy || ticket.createdBy || ticket.reporter)}</p>
+              <p className="font-bold text-slate-200 text-sm">{getUserName(ticket.reporter || ticket.reportedBy || ticket.reported_by)}</p>
             </div>
-            <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-600 uppercase mb-1 tracking-widest">Reviewed By</label>
+              <p className="font-bold text-slate-200 text-sm">{getUserName(ticket.reviewedBy || 'Not reviewed')}</p>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-600 uppercase mb-1 tracking-widest">Approval Status</label>
+              <span className={`text-[10px] font-black uppercase ${ticket.approvalStatus === 'Approved' ? 'text-emerald-400' : ticket.approvalStatus === 'Rejected' ? 'text-rose-400' : 'text-slate-500'}`}>
+                {ticket.approvalStatus || 'Pending'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 mt-4">
               <div>
                 <label className="block text-[10px] font-black text-slate-600 uppercase mb-1 tracking-widest">Created Date</label>
                 <p className="text-xs font-mono text-slate-400">
@@ -95,10 +114,35 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users }: Props) 
           </div>
         </div>
 
-        <div className="mt-10 flex justify-end">
-          <button onClick={onClose} className="px-10 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition uppercase tracking-widest text-[10px]">
+        {/* Comment Section */}
+        <div className="mt-8 bg-slate-950/30 border border-slate-800/50 rounded-2xl p-6">
+          <label className="block text-[10px] font-black text-slate-600 uppercase mb-2 tracking-widest">Review Comments</label>
+          <p className="text-slate-400 text-sm italic">
+            {ticket.comment || "No review comments yet."}
+          </p>
+        </div>
+
+        <div className="mt-10 flex justify-end gap-3 flex-wrap">
+          <button 
+            onClick={onEdit}
+            className="px-8 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition uppercase tracking-widest text-[10px]"
+          >
+            Edit Ticket
+          </button>
+          <button onClick={onClose} className="px-8 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition uppercase tracking-widest text-[10px]">
             Close Details
           </button>
+          {isAdmin && (
+            <button 
+              onClick={() => {
+                onClose();
+                onApprove?.();
+              }} 
+              className="px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl transition uppercase tracking-widest text-[10px] shadow-lg shadow-indigo-600/20"
+            >
+              Start Review
+            </button>
+          )}
         </div>
       </div>
     </div>

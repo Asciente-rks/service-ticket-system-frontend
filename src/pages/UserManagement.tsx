@@ -33,7 +33,7 @@ const UserManagement = () => {
 
   // FIXED: Enforce string comparison for UUIDs
   const getRoleName = (roleId: string | number) => {
-    return roles.find(r => String(r.id) === String(roleId))?.name || 'Unknown';
+    return roles.find(r => String(r.id).toLowerCase() === String(roleId).toLowerCase())?.name || 'Unknown';
   };
 
   const handleEdit = (user: User) => {
@@ -88,9 +88,9 @@ const UserManagement = () => {
                   <td className="p-6 text-slate-400 font-mono text-sm tracking-tighter">{user.email}</td>
                   <td className="p-6">
                     <span className={`px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
-                      roleName === 'Superadmin' 
-                      ? 'border-purple-500/50 text-purple-400 bg-purple-500/5' 
-                      : roleName === 'Admin'
+                      ['superadmin', 'super admin'].includes(roleName.toLowerCase())
+                      ? 'border-purple-500/50 text-purple-400 bg-purple-500/5'
+                      : roleName.toLowerCase() === 'admin'
                       ? 'border-rose-500/50 text-rose-400 bg-rose-500/5'
                       : 'border-slate-700 text-slate-500 bg-slate-800/50'
                     }`}>

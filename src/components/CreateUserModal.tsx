@@ -34,8 +34,8 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
     try {
       // 2. Prepare Payload: Keep roleId as a STRING (UUID)
       const payload = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
+        name: formData.name,
+        email: formData.email,
         password: formData.password,
         roleId: formData.roleId // DO NOT use Number() here
       };

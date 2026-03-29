@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
+import { getLoggedInUser } from '../utils/auth';
 import type { User, Role } from '../types';
+
+interface UserUpdatePayload extends Partial<User> {
+  password?: string;
+}
 
 interface Props {
   isOpen: boolean;
@@ -30,20 +35,30 @@ const EditUserModal = ({ isOpen, onClose, user, roles, onSuccess }: Props) => {
     }
   }, [user]);
 
-  if (!isOpen) return null;
+  const currentUser = getLoggedInUser();
+  const isAdmin = useMemo(() => {
+    if (!currentUser || roles.length === 0) return false;
+    const userRoleId = String(currentUser.roleId).toLowerCase();
+    const adminRoles = roles.filter(r => 
+      ['admin', 'administrator', 'superadmin', 'super admin'].includes(r.name.toLowerCase().trim())
+    ).map(r => String(r.id).toLowerCase());
+    return adminRoles.includes(userRoleId);
+  }, [currentUser, roles]);
+
+  if (!isOpen || !isAdmin) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const payload: any = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
+      const payload: UserUpdatePayload = {
+        name: formData.name,
+        email: formData.email,
         roleId: formData.roleId
       };
 
-      if (formData.password.trim() !== '') {
+      if (formData.password !== '') {
         payload.password = formData.password;
       }
 
@@ -68,7 +83,7 @@ const EditUserModal = ({ isOpen, onClose, user, roles, onSuccess }: Props) => {
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Full Name</label>
             <input
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none transition"
               value={formData.name}
               onChange={e => setFormData({...formData, name: e.target.value})}
             />

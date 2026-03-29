@@ -1,27 +1,45 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
-import type { Ticket, TicketStatus, User } from '../types';
+import type { Ticket, TicketStatus, User, Role } from '../types';
 import CreateTicketModal from '../components/CreateTicketModal';
 import TicketDetailModal from '../components/TicketDetailModal';
+import ApprovalModal from '../components/ApprovalModal';
+import EditTicketModal from '../components/EditTicketModal';
+import { getLoggedInUser } from '../utils/auth';
 
 const Dashboard = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [statuses, setStatuses] = useState<TicketStatus[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [approvingTicketId, setApprovingTicketId] = useState<string | null>(null);
+  
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Filter/Sort State
+  const [filterType, setFilterType] = useState<'all' | 'assigned' | 'reported' | 'closed'>('all');
+  const [prioritySort, setPrioritySort] = useState<string>('All');
+
+  const currentUser = getLoggedInUser();
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      // Use allSettled so one flaky endpoint doesn't break the whole UI
-      const [tReq, sReq, uReq] = await Promise.allSettled([
-        api.get('/tickets'), api.get('/tickets/statuses'), api.get('/users')
+      const [tReq, sReq, uReq, rReq] = await Promise.allSettled([
+        api.get('/tickets'), 
+        api.get('/tickets/statuses'), 
+        api.get('/users'),
+        api.get('/users/roles')
       ]);
       if (tReq.status === 'fulfilled') setTickets(Array.isArray(tReq.value.data) ? tReq.value.data : []);
       if (sReq.status === 'fulfilled') setStatuses(Array.isArray(sReq.value.data) ? sReq.value.data : []);
       if (uReq.status === 'fulfilled') setUsers(Array.isArray(uReq.value.data) ? uReq.value.data : []);
+      if (rReq.status === 'fulfilled') setRoles(Array.isArray(rReq.value.data) ? rReq.value.data : []);
     } catch (error) {
       console.error("Dashboard sync failed:", error);
     } finally {
@@ -33,22 +51,39 @@ const Dashboard = () => {
     fetchData();
   }, [fetchData]);
 
-  // Robust lookup: handles nested objects, snake_case, and camelCase
+  // Handle deep-linking to a specific ticket from notifications
+  useEffect(() => {
+    const ticketId = searchParams.get('ticketId');
+    if (ticketId && tickets.length > 0) {
+      const ticket = tickets.find(t => String(t.id) === ticketId);
+      if (ticket) {
+        setSelectedTicket(ticket);
+        const newParams = new URLSearchParams(searchParams);
+        newParams.delete('ticketId');
+        setSearchParams(newParams, { replace: true });
+      }
+    }
+  }, [tickets, searchParams, setSearchParams]);
+
   const getStatusName = (t: any): string => {
     if (typeof t.status === 'string') return t.status;
     if (t.status?.name) return t.status.name;
-
-    const id = t.status_id || t.statusId || t.status?.id;
-    if (id) {
-      const match = statuses.find(s => String(s.id).toLowerCase() === String(id).toLowerCase());
-      if (match) return match.name;
-    }
-    return 'Unknown';
+    const statusId = t.statusId || t.status_id || t.status?.id;
+    const match = statuses.find(s => String(s.id).toLowerCase() === String(statusId).toLowerCase());
+    return match?.name || 'Unknown';
   };
 
+  // Robust lookup: handles nested objects, snake_case, and camelCase
   const getUserName = (input: any): string => {
     if (!input) return 'Unassigned';
+    
+    // Handle raw name strings (like 'Super Admin') or nested objects
+    if (typeof input === 'string' && input.length > 0 && !input.includes('-')) {
+      return input;
+    }
+    
     if (typeof input === 'object' && input.name) return input.name;
+    
     const id = typeof input === 'object' ? input.id : input;
     return users.find(u => String(u.id).toLowerCase() === String(id).toLowerCase())?.name || 'Unknown User';
   };
@@ -72,6 +107,41 @@ const Dashboard = () => {
     }
   };
 
+  // Role Logic: Identify admin role IDs (UUIDs) from the backend roles list
+  const adminRoleId = roles.find(r => 
+    ['admin', 'administrator'].includes(r.name.toLowerCase())
+  )?.id;
+  const superAdminRoleId = roles.find(r => 
+    ['superadmin', 'super admin', 'super-admin', 'root'].includes(r.name.toLowerCase())
+  )?.id;
+
+  // Access check based on UUID comparison as per backend requirement
+  const isAdmin = !!(currentUser?.roleId && (
+    (adminRoleId && String(currentUser.roleId).toLowerCase() === String(adminRoleId).toLowerCase()) ||
+    (superAdminRoleId && String(currentUser.roleId).toLowerCase() === String(superAdminRoleId).toLowerCase())
+  ));
+
+  // Filtering Logic
+  const filteredTickets = tickets.filter((ticket: any) => {
+    const statusName = getStatusName(ticket);
+    
+    // 1. Filter by category
+    if (filterType === 'assigned') {
+      const assigneeId = ticket.assignee?.id || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to;
+      if (String(assigneeId).toLowerCase() !== String(currentUser?.id).toLowerCase()) return false;
+    }
+    if (filterType === 'reported') {
+      const reporterId = ticket.reporter?.id || ticket.reportedBy || ticket.reported_by;
+      if (String(reporterId).toLowerCase() !== String(currentUser?.id).toLowerCase()) return false;
+    }
+    if (filterType === 'closed' && statusName !== 'Closed' && statusName !== 'Resolved') return false;
+
+    // 2. Filter by priority
+    if (prioritySort !== 'All' && ticket.priority !== prioritySort) return false;
+
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-slate-950 p-6 md:p-10 text-white">
       <div className="max-w-7xl mx-auto">
@@ -90,6 +160,42 @@ const Dashboard = () => {
           </button>
         </header>
 
+        {/* Filter Bar */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-slate-900/30 p-2 rounded-2xl border border-slate-800/50">
+          <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl">
+            {[
+              { id: 'all', label: 'All Tickets' },
+              { id: 'assigned', label: 'Assigned to Me' },
+              { id: 'reported', label: 'My Reports' },
+              { id: 'closed', label: 'Closed' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFilterType(tab.id as any)}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  filterType === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          
+          <div className="flex items-center gap-3 pr-4">
+            <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">Priority:</span>
+            <select 
+              value={prioritySort}
+              onChange={(e) => setPrioritySort(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-300 outline-none cursor-pointer"
+            >
+              <option value="All">All Priorities</option>
+              <option value="High">High Only</option>
+              <option value="Medium">Medium Only</option>
+              <option value="Low">Low Only</option>
+            </select>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -97,16 +203,16 @@ const Dashboard = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {tickets.length > 0 ? (
-              tickets.map((t: any) => {
+            {filteredTickets.length > 0 ? (
+              filteredTickets.map((t: any) => {
                 const ticket = t;
                 const statusName = getStatusName(ticket);
-                const assigneeName = getUserName(ticket.assigned_to || ticket.assignedTo || ticket.assignee);
+                const assigneeName = getUserName(ticket.assignee || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to);
                 return (
                   <div 
                     key={ticket.id} 
                     onClick={() => setSelectedTicket(ticket)}
-                    className="bg-slate-900/50 backdrop-blur-sm p-6 rounded-2xl border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col group cursor-pointer shadow-lg hover:shadow-indigo-500/5"
+                    className="bg-slate-900/50 backdrop-blur-sm p-6 rounded-3xl border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col group cursor-pointer shadow-lg hover:shadow-indigo-500/5 relative overflow-hidden"
                   >
                     <div className="flex justify-between items-center mb-4">
                       <span className={`px-2.5 py-1 border rounded-lg text-[10px] font-black uppercase tracking-widest ${getPriorityStyle(ticket.priority)}`}>
@@ -140,12 +246,14 @@ const Dashboard = () => {
                           {statusName}
                         </span>
                       </div>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); /* logic for archive */ }} 
-                        className="text-[11px] font-bold text-slate-600 hover:text-red-500 uppercase transition-colors"
-                      >
-                        Archive
-                      </button>
+                      {isAdmin && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); setApprovingTicketId(ticket.id); }} 
+                          className="text-[10px] font-black bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-500 transition-all uppercase tracking-widest shadow-lg shadow-indigo-600/20"
+                        >
+                          Review
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -167,6 +275,30 @@ const Dashboard = () => {
             ticket={selectedTicket}
             statuses={statuses}
             users={users}
+            isAdmin={isAdmin}
+            onApprove={() => setApprovingTicketId(selectedTicket.id)}
+            onEdit={() => setIsEditModalOpen(true)}
+          />
+        )}
+
+        {selectedTicket && (
+          <EditTicketModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            onSuccess={fetchData}
+            ticket={selectedTicket}
+            statuses={statuses}
+            users={users}
+            roles={roles}
+          />
+        )}
+
+        {approvingTicketId && (
+          <ApprovalModal 
+            isOpen={!!approvingTicketId} 
+            onClose={() => setApprovingTicketId(null)} 
+            ticketId={approvingTicketId} 
+            onSuccess={fetchData} 
           />
         )}
       </div>

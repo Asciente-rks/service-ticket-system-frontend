@@ -13,14 +13,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
 
-  // Refs for click-outside detection
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Handle click outside to close dropdowns
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
@@ -41,29 +39,23 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     const currentUser = getLoggedInUser();
     setUser(currentUser);
 
-    // Fetch roles to determine admin status
     const fetchRoles = async () => {
       try {
-        const res = await api.get('/users/roles'); // Ensure this endpoint exists for authenticated users
+        const res = await api.get('/users/roles');
         setRoles(Array.isArray(res.data) ? res.data : []);
       } catch (err) {
-        setRoles([]); // Ensure state is set even on failure
+        setRoles([]);
         console.error("Layout Role Fetch Failed:", err);
       }
     };
     fetchRoles();
 
-    // Fetch users to find the descriptive name for the current account
-    // NOTE: This fetches ALL users just to find the current user's name.
-    // For better performance, consider implementing a /users/me endpoint on the backend
-    // that returns the current user's full details, or ensure getLoggedInUser() returns the name.
     const fetchUsers = async () => {
       try {
         const res = await api.get('/users');
         const usersList = Array.isArray(res.data) ? res.data : [];
         setUsers(usersList);
 
-        // If the current user isn't in the list (common for Admins), fetch them specifically
         if (currentUser && !usersList.find(u => String(u.id).toLowerCase() === String(currentUser.id).toLowerCase())) {
           try {
             const singleRes = await api.get(`/users/${currentUser.id}`);
@@ -81,7 +73,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     };
     fetchUsers();
 
-    // Fetch latest 5 notifications
     const fetchNotifications = async () => {
       try {
         const res = await api.get('/notifications?limit=5');
@@ -92,9 +83,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     };
 
     if (currentUser) fetchNotifications();
-  }, []); // Removed 'navigate' from dependencies as it's a stable function
+  }, []);
 
-  // Resolve the full user object (including name) from the users list
   const currentUserDetails = useMemo(() => {
     if (!user) return null;
     const userId = String(user.id).toLowerCase();
@@ -107,7 +97,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
     if (found) return found;
 
-    // Last resort fallback using email prefix only if name is missing everywhere
     const emailPrefix = userEmail ? userEmail.split("@")[0].replace(/[._]/g, " ") : "Administrator";
     
     return {
@@ -146,7 +135,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex">
-      {/* Sidebar */}
       <aside className={`bg-slate-900 border-r border-slate-800 transition-all duration-300 flex flex-col ${isCollapsed ? 'w-20' : 'w-64'}`}>
         <div className="p-6 flex items-center justify-between">
           {!isCollapsed && <h2 className="text-xl font-bold text-indigo-400">TICKETING</h2>}
@@ -154,7 +142,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             onClick={() => setIsCollapsed(!isCollapsed)}
             className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 mx-auto"
           >
-            {/* Burger Icon (3 Lines) */}
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -177,11 +164,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         </nav>
       </aside>
 
-      {/* Main Container */}
       <div className="flex-1 flex flex-col">
-        {/* Navbar */}
         <header className="h-16 border-b border-slate-800 flex items-center justify-end px-8 relative bg-slate-950">
-          {/* Notification Bell */}
           <div className="relative mr-4" ref={notificationsRef}>
             <button 
               onClick={() => {
@@ -226,7 +210,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             )}
           </div>
 
-          {/* Profile Dropdown Container */}
           <div className="relative" ref={profileRef}>
             <button 
               onClick={() => {
@@ -248,7 +231,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
               </div>
             </button>
 
-            {/* The Clickable Menu */}
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden">
                 <button 

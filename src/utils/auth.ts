@@ -1,4 +1,4 @@
-import { jwtDecode } from "jwt-decode"; // You might need: npm install jwt-decode
+import { jwtDecode } from "jwt-decode";
 import type { User } from "../types";
 
 export const getLoggedInUser = (): User | null => {

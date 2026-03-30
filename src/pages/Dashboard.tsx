@@ -21,7 +21,6 @@ const Dashboard = () => {
   
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Filter/Sort State
   const [filterType, setFilterType] = useState<'all' | 'assigned' | 'reported' | 'closed'>('all');
   const [prioritySort, setPrioritySort] = useState<string>('All');
 
@@ -51,7 +50,6 @@ const Dashboard = () => {
     fetchData();
   }, [fetchData]);
 
-  // Handle deep-linking to a specific ticket from notifications
   useEffect(() => {
     const ticketId = searchParams.get('ticketId');
     if (ticketId && tickets.length > 0) {
@@ -73,11 +71,9 @@ const Dashboard = () => {
     return match?.name || 'Unknown';
   };
 
-  // Robust lookup: handles nested objects, snake_case, and camelCase
   const getUserName = (input: any): string => {
     if (!input) return 'Unassigned';
-    
-    // Handle raw name strings (like 'Super Admin') or nested objects
+
     if (typeof input === 'string' && input.length > 0 && !input.includes('-')) {
       return input;
     }
@@ -107,7 +103,6 @@ const Dashboard = () => {
     }
   };
 
-  // Role Logic: Identify admin role IDs (UUIDs) from the backend roles list
   const adminRoleId = roles.find(r => 
     ['admin', 'administrator'].includes(r.name.toLowerCase())
   )?.id;
@@ -115,17 +110,14 @@ const Dashboard = () => {
     ['superadmin', 'super admin', 'super-admin', 'root'].includes(r.name.toLowerCase())
   )?.id;
 
-  // Access check based on UUID comparison as per backend requirement
   const isAdmin = !!(currentUser?.roleId && (
     (adminRoleId && String(currentUser.roleId).toLowerCase() === String(adminRoleId).toLowerCase()) ||
     (superAdminRoleId && String(currentUser.roleId).toLowerCase() === String(superAdminRoleId).toLowerCase())
   ));
 
-  // Filtering Logic
   const filteredTickets = tickets.filter((ticket: any) => {
     const statusName = getStatusName(ticket);
-    
-    // 1. Filter by category
+
     if (filterType === 'assigned') {
       const assigneeId = ticket.assignee?.id || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to;
       if (String(assigneeId).toLowerCase() !== String(currentUser?.id).toLowerCase()) return false;
@@ -136,7 +128,6 @@ const Dashboard = () => {
     }
     if (filterType === 'closed' && statusName !== 'Closed' && statusName !== 'Resolved') return false;
 
-    // 2. Filter by priority
     if (prioritySort !== 'All' && ticket.priority !== prioritySort) return false;
 
     return true;
@@ -160,7 +151,6 @@ const Dashboard = () => {
           </button>
         </header>
 
-        {/* Filter Bar */}
         <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-slate-900/30 p-2 rounded-2xl border border-slate-800/50">
           <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl">
             {[

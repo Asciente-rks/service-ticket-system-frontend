@@ -14,7 +14,7 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
     name: '',
     email: '',
     password: '',
-    roleId: '' // This will now store the UUID string
+    roleId: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,8 +22,7 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 1. UUID Validation: Just check if it's not an empty string
+
     if (!formData.roleId) {
       alert("Please select a valid role.");
       return;
@@ -32,24 +31,20 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
     setIsSubmitting(true);
 
     try {
-      // 2. Prepare Payload: Keep roleId as a STRING (UUID)
       const payload = {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        roleId: formData.roleId // DO NOT use Number() here
+        roleId: formData.roleId
       };
 
-      // 3. API Call
       await api.post('/users', payload);
       
       onSuccess();
       onClose();
-      // Reset form
       setFormData({ name: '', email: '', password: '', roleId: '' });
     } catch (err: any) {
       console.error("CREATE USER ERROR:", err.response?.data);
-      // This will now show the actual Zod/Joi error if the UUID format is wrong
       alert(err.response?.data?.message || "Input validation failed. Check UUID format or password.");
     } finally {
       setIsSubmitting(false);
@@ -62,7 +57,6 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
         <h2 className="text-2xl font-bold text-white mb-6 uppercase tracking-tighter">Add Team Member</h2>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name Field */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Full Name</label>
             <input
@@ -73,7 +67,6 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
             />
           </div>
 
-          {/* Email Field */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Email Address</label>
             <input
@@ -85,7 +78,6 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
             />
           </div>
 
-          {/* Password Field */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Password</label>
             <input
@@ -97,7 +89,6 @@ const CreateUserModal = ({ isOpen, onClose, roles, onSuccess }: Props) => {
             />
           </div>
 
-          {/* Role Dropdown (UUIDs) */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5">Assigned Role</label>
             <select

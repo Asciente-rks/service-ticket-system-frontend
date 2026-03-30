@@ -17,9 +17,9 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    priority: 'Medium',
-    statusId: '',    // UUID String
-    assignedTo: ''   // UUID String
+    priority: '',
+    statusId: '',
+    assignedTo: ''
   });
 
   useEffect(() => {
@@ -28,13 +28,11 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
     const fetchData = async () => {
       setIsLoadingData(true);
       try {
-        // Fetch separately: if /users fails, /statuses can still succeed
         try {
           const statusRes = await api.get('/tickets/statuses');
           const fetchedStatuses = Array.isArray(statusRes.data) ? statusRes.data : [];
           if (isMounted) {
             setStatuses(fetchedStatuses);
-            // Auto-select first status
             if (fetchedStatuses.length > 0) {
               setFormData(prev => ({ ...prev, statusId: String(fetchedStatuses[0].id) }));
             }
@@ -59,7 +57,6 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
     };
 
     if (isOpen) {
-      // Reset form state on open
       setFormData({
         title: '',
         description: '',
@@ -91,7 +88,6 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
         title: formData.title,
         description: formData.description,
         priority: formData.priority,
-        // Using 'assigneeId' as confirmed by your successful Postman test
         statusId: formData.statusId || null,
         assigneeId: formData.assignedTo || null 
       };
@@ -113,7 +109,6 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
         <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">Create New Ticket</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Title */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">Title</label>
             <input
@@ -125,7 +120,6 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">Description</label>
             <textarea
@@ -138,7 +132,6 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
             />
           </div>
 
-          {/* Priority & Status */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">Priority</label>
@@ -170,7 +163,6 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
             </div>
           </div>
 
-          {/* Assignee Selection */}
           <div>
             <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">Assign To</label>
             <select
@@ -187,7 +179,6 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
             </select>
           </div>
 
-          {/* Actions */}
           <div className="flex gap-3 mt-8">
             <button 
               type="button" 

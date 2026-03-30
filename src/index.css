@@ -1,8 +1,5 @@
 @theme {
-  /* This adds a custom color you can use as 'text-brand' or 'bg-brand' */
   --color-brand: #3b82f6; 
-  
-  /* You can even override the default fonts here */
   --font-sans: "Inter", ui-sans-serif, system-ui;
 }
 @import "tailwindcss";

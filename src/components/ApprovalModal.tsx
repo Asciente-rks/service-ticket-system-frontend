@@ -22,9 +22,8 @@ const ApprovalModal = ({ isOpen, onClose, ticketId, onSuccess }: Props) => {
     const currentUser = getLoggedInUser();
 
     try {
-      // Using the exact endpoint and payload format confirmed in Postman
       await api.post(`/tickets/${ticketId}/approval`, {
-        status: status, // "Approved" or "Rejected"
+        status: status,
         comment: comment
       });
       onSuccess();

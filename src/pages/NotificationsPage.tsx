@@ -13,7 +13,6 @@ const NotificationsPage = () => {
   const fetchAllNotifications = async (currentPage: number) => {
     setLoading(true);
     try {
-      // Expecting backend to support page and limit query params
       const res = await api.get(`/notifications?page=${currentPage}&limit=${limit}`).catch(() => ({ data: [] }));
       const data = res.data || [];
       
@@ -112,7 +111,6 @@ const NotificationsPage = () => {
         )}
       </div>
 
-      {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="flex gap-4 mt-10">
           <button

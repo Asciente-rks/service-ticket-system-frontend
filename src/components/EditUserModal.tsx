@@ -19,7 +19,7 @@ const EditUserModal = ({ isOpen, onClose, user, roles, onSuccess }: Props) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    roleId: '', // Correctly handled as string for UUID
+    roleId: '',
     password: '' 
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,7 +29,7 @@ const EditUserModal = ({ isOpen, onClose, user, roles, onSuccess }: Props) => {
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        roleId: String(user.roleId), // Force string to be safe
+        roleId: String(user.roleId),
         password: '' 
       });
     }

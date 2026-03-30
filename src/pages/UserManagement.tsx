@@ -31,7 +31,6 @@ const UserManagement = () => {
     fetchData();
   }, [fetchData]);
 
-  // FIXED: Enforce string comparison for UUIDs
   const getRoleName = (roleId: string | number) => {
     return roles.find(r => String(r.id).toLowerCase() === String(roleId).toLowerCase())?.name || 'Unknown';
   };

@@ -9,7 +9,6 @@ const Settings = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | '', text: string }>({ type: '', text: '' });
 
-  // Explicitly get token to ensure headers are correctly populated
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     return token ? { Authorization: `Bearer ${token}` } : {};

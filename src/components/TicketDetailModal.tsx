@@ -3,7 +3,7 @@ import type { Ticket, TicketStatus, User } from '../types';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  ticket: any; // Type assertion to bypass incomplete Ticket interface
+  ticket: any;
   statuses: TicketStatus[];
   users: User[];
   isAdmin?: boolean;
@@ -15,11 +15,9 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users, isAdmin, 
   if (!isOpen) return null;
 
   const getStatusName = (t: any): string => {
-    // 1. Try to find the name directly if it's already a string or nested object
     if (typeof t.status === 'string') return t.status;
     if (t.status?.name) return t.status.name;
 
-    // 2. Prioritize 'statusId' to match the backend foreignKey association
     const statusId = t.statusId || t.status_id || t.status?.id;
     if (statusId) {
       const match = statuses.find(s => String(s.id).toLowerCase() === String(statusId).toLowerCase());
@@ -31,7 +29,6 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users, isAdmin, 
   const getUserName = (input: any): string => {
     if (!input) return 'Unassigned';
     
-    // If the input is already a string and not a UUID, it's likely the name itself
     if (typeof input === 'string' && input.length > 0 && !input.includes('-')) {
       return input;
     }
@@ -45,7 +42,6 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users, isAdmin, 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-3xl p-8 shadow-2xl relative">
-        {/* Header */}
         <div className="flex justify-between items-start mb-8">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -60,13 +56,11 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users, isAdmin, 
           </button>
         </div>
 
-        {/* Description */}
         <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-6 mb-8">
           <label className="block text-[10px] font-black text-slate-600 uppercase mb-2 tracking-widest">Ticket Description</label>
           <p className="text-slate-300 leading-relaxed text-sm">{ticket.description}</p>
         </div>
 
-        {/* Meta Info Grid */}
         <div className="grid grid-cols-2 gap-8 border-t border-slate-800 pt-8">
           <div className="space-y-6">
             <div>
@@ -114,7 +108,6 @@ const TicketDetailModal = ({ isOpen, onClose, ticket, statuses, users, isAdmin, 
           </div>
         </div>
 
-        {/* Comment Section */}
         <div className="mt-8 bg-slate-950/30 border border-slate-800/50 rounded-2xl p-6">
           <label className="block text-[10px] font-black text-slate-600 uppercase mb-2 tracking-widest">Review Comments</label>
           <p className="text-slate-400 text-sm italic">

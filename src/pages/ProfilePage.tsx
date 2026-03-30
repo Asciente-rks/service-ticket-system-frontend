@@ -22,7 +22,6 @@ const ProfilePage = () => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        // Fetching full data set to resolve details
         const [userRes, roleRes] = await Promise.all([
           api.get(`/users`),
           api.get('/users/roles')
@@ -37,7 +36,6 @@ const ProfilePage = () => {
           (userEmail && String(u.email || "").toLowerCase() === userEmail)
         );
 
-        // If Admin is hidden from the general list, fetch the record specifically
         if (!foundUser && currentUser?.id) {
           try {
             const singleRes = await api.get(`/users/${currentUser.id}`);

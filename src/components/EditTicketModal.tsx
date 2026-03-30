@@ -27,7 +27,6 @@ const EditTicketModal = ({ isOpen, onClose, onSuccess, ticket, statuses, users, 
 
   useEffect(() => {
     if (isOpen && ticket) {
-      // Map incoming ticket data to form state, handling various backend naming conventions, without trimming
       setFormData({
         title: ticket.title || '',
         description: ticket.description || '',
@@ -38,7 +37,6 @@ const EditTicketModal = ({ isOpen, onClose, onSuccess, ticket, statuses, users, 
     }
   }, [isOpen, ticket]);
 
-  // 1. Discover the specific UUIDs for each role from the database records
   const superAdminRoleId = roles.find(r => ['superadmin', 'super admin'].includes(r.name.toLowerCase()))?.id;
   const adminRoleId = roles.find(r => ['admin', 'administrator'].includes(r.name.toLowerCase()))?.id;
   const developerRoleId = roles.find(r => ['developer', 'dev', 'devs'].includes(r.name.toLowerCase()))?.id;
@@ -46,7 +44,6 @@ const EditTicketModal = ({ isOpen, onClose, onSuccess, ticket, statuses, users, 
   
   const actorRoleId = currentUser?.roleId ? String(currentUser.roleId).toLowerCase() : '';
 
-  // Identify hierarchy levels based on the roles array
   const isSuperAdmin = !!(superAdminRoleId && actorRoleId === String(superAdminRoleId).toLowerCase());
   const isRegularAdmin = !!(adminRoleId && actorRoleId === String(adminRoleId).toLowerCase());
   const isAdmin = isSuperAdmin || isRegularAdmin;
@@ -55,12 +52,10 @@ const EditTicketModal = ({ isOpen, onClose, onSuccess, ticket, statuses, users, 
     String((ticket as any).reportedBy || (ticket as any).reported_by || (ticket as any).reporter?.id).toLowerCase() === String(currentUser.id).toLowerCase()
   ));
 
-  // Only Admins or the original Reporter should edit the core ticket details
   const canEditCoreDetails = isAdmin || isReporter;
 
   if (!isOpen) return null;
 
-  // Apply the hierarchy logic to the assignment list
   const filteredUsers = users.filter(u => {
     if (!currentUser) return false;
 
@@ -68,25 +63,20 @@ const EditTicketModal = ({ isOpen, onClose, onSuccess, ticket, statuses, users, 
     const targetUserRoleId = String(u.roleId).toLowerCase();
     const currentUserId = String(currentUser.id).toLowerCase();
 
-    // Normalize actor role for comparison
     const currentRole = roles.find(r => String(r.id).toLowerCase() === actorRoleId)?.name.toLowerCase() || '';
 
-    // 1. SuperAdmin Logic: Can reassign to anyone except themselves
     if (currentRole === 'superadmin' || currentRole === 'super admin') {
       return targetUserId !== currentUserId;
     }
 
-    // 2. Define the "Target Pool" (Anyone who is a Developer or Tester)
     const isTargetDev = developerRoleId && targetUserRoleId === String(developerRoleId).toLowerCase();
     const isTargetTester = testerRoleId && targetUserRoleId === String(testerRoleId).toLowerCase();
     const isTargetInWorkerPool = isTargetDev || isTargetTester;
 
-    // 3. Admin Logic: Can reassign to any Dev or Tester
     if (currentRole === 'admin') {
       return isTargetInWorkerPool;
     }
 
-    // 4. Dev & Tester Logic: Can reassign to fellow Devs or Testers
     if (['developer', 'dev', 'tester', 'qa'].includes(currentRole)) {
       return isTargetInWorkerPool;
     }

@@ -7,15 +7,13 @@ import NotificationsPage from './pages/NotificationsPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Settings from './components/Settings';
-// DELETE the "const Dashboard = () => ..." lines if they are still there!
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-        
-        {/* Wrap Protected Pages in Layout */}
+
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <Layout><Dashboard /></Layout>

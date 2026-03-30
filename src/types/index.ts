@@ -4,8 +4,7 @@ export interface User {
     email: string;
     roleId: string; 
   }
-  
-  // Add this export
+ 
   export interface Role {
     id: string;
     name: string;
@@ -20,8 +19,7 @@ export interface User {
     createdAt: string;
     userId: string;
   }
-  
-  // Add this export - This is the one Dashboard is looking for!
+
   export interface TicketStatus {
     id: string;
     name: string;

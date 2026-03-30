@@ -257,7 +257,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 >
                   👤 My Profile / Edit
                 </button>
-                <button className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 flex items-center gap-2">
+                <button
+                  onClick={() => { navigate('/settings'); setIsProfileOpen(false); }}
+                  className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 flex items-center gap-2"
+                >
                   ⚙️ Settings
                 </button>
                 <hr className="border-slate-800" />

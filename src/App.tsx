@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import NotificationsPage from './pages/NotificationsPage';
 import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
+import Settings from './components/Settings';
 // DELETE the "const Dashboard = () => ..." lines if they are still there!
 
 function App() {
@@ -36,6 +37,12 @@ function App() {
         <Route path="/profile" element={
           <ProtectedRoute>
             <Layout><ProfilePage /></Layout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/settings" element={
+          <ProtectedRoute>
+            <Layout><Settings /></Layout>
           </ProtectedRoute>
         } />
 

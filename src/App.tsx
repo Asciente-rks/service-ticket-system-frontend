@@ -1,12 +1,17 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import UserManagement from './pages/UserManagement';
-import Login from './pages/Login';
-import NotificationsPage from './pages/NotificationsPage';
-import ProfilePage from './pages/ProfilePage';
-import ProtectedRoute from './components/ProtectedRoute';
-import Settings from './components/Settings';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import Layout from "./components/Layout";
+import Dashboard from "./pages/Dashboard";
+import UserManagement from "./pages/UserManagement";
+import Login from "./pages/Login";
+import NotificationsPage from "./pages/NotificationsPage";
+import ProfilePage from "./pages/ProfilePage";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Settings from "./components/Settings";
 
 function App() {
   return (
@@ -14,35 +19,60 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
 
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Layout><Dashboard /></Layout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/users" element={
-          <ProtectedRoute>
-            <Layout><UserManagement /></Layout>
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/notifications" element={
-          <ProtectedRoute>
-            <Layout><NotificationsPage /></Layout>
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <UserManagement />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/profile" element={
-          <ProtectedRoute>
-            <Layout><ProfilePage /></Layout>
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <NotificationsPage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/settings" element={
-          <ProtectedRoute>
-            <Layout><Settings /></Layout>
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <ProfilePage />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Layout>
+                <Settings />
+              </Layout>
+            </ProtectedRoute>
+          }
+        />
 
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>

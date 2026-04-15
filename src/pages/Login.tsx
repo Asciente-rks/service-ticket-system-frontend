@@ -52,7 +52,14 @@ const Login = () => {
         </button>
       </div>
 
-      <div className="w-full max-w-md rounded-[28px] p-8 mono-card">
+      <div
+        className="w-full max-w-md rounded-[28px] p-8"
+        style={{
+          backgroundColor: theme === "dark" ? "#000000" : "#ffffff",
+          border: theme === "dark" ? "1px solid #ffffff" : "1px solid #000000",
+          boxShadow: theme === "dark" ? "0 30px 80px rgba(255,255,255,0.06)" : "0 30px 80px rgba(0,0,0,0.06)",
+        }}
+      >
         <div className="flex flex-col items-center gap-4 mb-6">
           <img
             src={theme === "dark" ? LogoNoNameDark : LogoLight}
@@ -74,11 +81,12 @@ const Login = () => {
           <input
             type="email"
             placeholder="Email Address"
-            className="w-full rounded-xl border p-3 outline-none transition placeholder:text-slate-500"
+            className="w-full rounded-xl border p-3 outline-none transition"
             style={{
-              borderColor: "var(--border)",
-              backgroundColor: "var(--input)",
-              color: "var(--input-text)",
+              borderColor: theme === "dark" ? "#ffffff" : "#000000",
+              backgroundColor: theme === "dark" ? "#0c1726" : "#f8fafc",
+              color: theme === "dark" ? "#f8fafc" : "#020617",
+              caretColor: theme === "dark" ? "#f8fafc" : "#020617",
             }}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -87,11 +95,12 @@ const Login = () => {
           <input
             type="password"
             placeholder="Password"
-            className="w-full rounded-xl border p-3 outline-none transition placeholder:text-slate-500"
+            className="w-full rounded-xl border p-3 outline-none transition"
             style={{
-              borderColor: "var(--border)",
-              backgroundColor: "var(--input)",
-              color: "var(--input-text)",
+              borderColor: theme === "dark" ? "#ffffff" : "#000000",
+              backgroundColor: theme === "dark" ? "#0c1726" : "#f8fafc",
+              color: theme === "dark" ? "#f8fafc" : "#020617",
+              caretColor: theme === "dark" ? "#f8fafc" : "#020617",
             }}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -100,11 +109,11 @@ const Login = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl border px-5 py-3 text-sm font-semibold transition"
+            className="w-full rounded-xl border px-5 py-3 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-white/10"
             style={{
-              borderColor: "var(--border)",
-              backgroundColor: "var(--button-bg)",
-              color: "var(--button-text)",
+              borderColor: theme === "dark" ? "#ffffff" : "#000000",
+              backgroundColor: theme === "dark" ? "#0b1220" : "#000000",
+              color: "#ffffff",
             }}
           >
             {loading ? "Authenticating..." : "Sign In"}

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import api from "../services/api";
-import { getLoggedInUser } from "../utils/auth";
 
 interface Props {
   isOpen: boolean;
@@ -19,7 +18,6 @@ const ApprovalModal = ({ isOpen, onClose, ticketId, onSuccess }: Props) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    const currentUser = getLoggedInUser();
 
     try {
       await api.post(`/tickets/${ticketId}/approval`, {
@@ -37,69 +35,97 @@ const ApprovalModal = ({ isOpen, onClose, ticketId, onSuccess }: Props) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/90 backdrop-blur-md p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-8 shadow-2xl">
-        <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">
-          Review Ticket
-        </h2>
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
+      <div
+        className="w-full max-w-xl rounded-[2rem] border p-8 shadow-2xl"
+        style={{
+          backgroundColor: "var(--surface)",
+          borderColor: "var(--border)",
+          color: "var(--text)",
+        }}
+      >
+        <div className="mb-6 border-b border-[var(--border)] pb-4">
+          <h2 className="text-2xl font-black uppercase tracking-[0.25em]" style={{ color: "var(--text)" }}>
+            Review Ticket
+          </h2>
+          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+            Choose a decision and leave your review comments.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">
+            <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: "var(--muted)" }}>
               Decision
             </label>
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setStatus("Approved")}
-                className={`py-3 rounded-xl font-bold transition-all border ${
+                className={`py-3 rounded-3xl font-black uppercase tracking-widest transition duration-200 ease-out transform ${
                   status === "Approved"
-                    ? "bg-emerald-500 border-emerald-400 text-white"
-                    : "bg-slate-950 border-slate-800 text-slate-500"
+                    ? "bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                    : "bg-[var(--input)] border border-[var(--border)] text-[var(--text)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
                 }`}
               >
-                APPROVE
+                Approve
               </button>
               <button
                 type="button"
                 onClick={() => setStatus("Rejected")}
-                className={`py-3 rounded-xl font-bold transition-all border ${
+                className={`py-3 rounded-3xl font-black uppercase tracking-widest transition duration-200 ease-out transform ${
                   status === "Rejected"
-                    ? "bg-rose-500 border-rose-400 text-white"
-                    : "bg-slate-950 border-slate-800 text-slate-500"
+                    ? "bg-rose-500 border-rose-500 text-white shadow-lg shadow-rose-500/20"
+                    : "bg-[var(--input)] border border-[var(--border)] text-[var(--text)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
                 }`}
               >
-                REJECT
+                Reject
               </button>
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">
+            <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
               Review Comments
             </label>
             <textarea
               required
-              rows={4}
+              rows={5}
               placeholder="Explain the reason for your decision..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none resize-none transition"
+              className="w-full rounded-3xl px-4 py-4 outline-none resize-none transition"
+              style={{
+                backgroundColor: "var(--input)",
+                border: "1px solid var(--border)",
+                color: "var(--input-text)",
+              }}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-slate-800 text-slate-400 font-bold rounded-xl hover:bg-slate-800 transition"
+              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
+              style={{
+                backgroundColor: "transparent",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 shadow-xl shadow-indigo-600/20 transition active:scale-95"
+              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
+              style={{
+                backgroundColor: "var(--button-bg)",
+                color: "var(--button-text)",
+                border: "1px solid var(--border)",
+                opacity: isSubmitting ? 0.6 : 1,
+              }}
             >
               {isSubmitting ? "Processing..." : "Submit Review"}
             </button>

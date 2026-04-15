@@ -79,9 +79,9 @@ const Settings = () => {
 
   if (loading)
     return (
-      <div className="flex flex-col items-center justify-center py-32">
-        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin mb-4" />
-        <p className="text-slate-500 font-black uppercase tracking-[0.3em] text-[10px]">
+      <div className="flex flex-col items-center justify-center py-32" style={{ color: "var(--text)" }}>
+        <Loader2 className="w-10 h-10 animate-spin mb-4" style={{ color: "var(--button-text)" }} />
+        <p className="font-black uppercase tracking-[0.3em] text-[10px]" style={{ color: "var(--muted)" }}>
           Retrieving Preferences
         </p>
       </div>
@@ -92,30 +92,31 @@ const Settings = () => {
       <div className="mb-12">
         <button
           onClick={() => navigate(-1)}
-          className="text-slate-500 hover:text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 transition-colors"
+          className="text-[10px] font-black uppercase tracking-[0.2em] mb-4 flex items-center gap-2 transition-colors"
+          style={{ color: "var(--muted)" }}
         >
           <ArrowLeft size={14} />
           Return
         </button>
-        <h1 className="text-5xl font-black text-white uppercase tracking-tighter">
-          System <span className="text-indigo-500">Config</span>
+        <h1 className="text-5xl font-black uppercase tracking-tighter" style={{ color: "var(--text)" }}>
+          System <span style={{ color: "var(--muted)" }}>Config</span>
         </h1>
-        <p className="text-slate-500 text-sm font-medium">
+        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
           Configure how the ticketing cluster communicates with your account
         </p>
       </div>
 
-      <div className="bg-slate-900/50 border border-slate-800/60 rounded-[2.5rem] overflow-hidden backdrop-blur-xl shadow-2xl">
-        <div className="p-8 border-b border-slate-800/50 bg-slate-900/30 flex justify-between items-center">
+      <div className="rounded-[2.5rem] overflow-hidden shadow-2xl" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
+        <div className="p-8 border-b flex justify-between items-center" style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}>
           <div className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 flex items-center justify-center">
-              <Bell className="text-indigo-400" size={24} />
+            <div className="p-3 rounded-2xl border flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.04)", borderColor: "var(--border)" }}>
+              <Bell className="text-[var(--text)]" size={24} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">
+              <h2 className="text-xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
                 Notification Channels
               </h2>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: "var(--muted)" }}>
                 Real-time event subscriptions
               </p>
             </div>
@@ -125,14 +126,22 @@ const Settings = () => {
         <div className="p-10 space-y-8">
           {status.text && (
             <div
-              className={`p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2 ${
-                status.type === "success"
-                  ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"
-                  : "bg-rose-500/10 border border-rose-500/20 text-rose-400"
-              }`}
+              className="p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-3 animate-in slide-in-from-top-2"
+              style={{
+                backgroundColor:
+                  status.type === "success"
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(255,255,255,0.06)",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
             >
               <div
-                className={`w-2 h-2 rounded-full animate-pulse ${status.type === "success" ? "bg-emerald-500" : "bg-rose-500"}`}
+                className="w-2 h-2 rounded-full animate-pulse"
+                style={{
+                  backgroundColor:
+                    status.type === "success" ? "var(--text)" : "var(--muted)",
+                }}
               ></div>
               {status.text}
             </div>
@@ -170,11 +179,16 @@ const Settings = () => {
           </div>
         </div>
 
-        <div className="p-8 bg-slate-950/50 border-t border-slate-800/50 flex justify-end">
+        <div className="p-8 flex justify-end" style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--border)" }}>
           <button
             onClick={handleSave}
             disabled={isSubmitting}
-            className="flex items-center gap-3 bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition-all shadow-2xl shadow-indigo-600/20 active:scale-95 disabled:opacity-50"
+            className="flex items-center gap-3 px-10 py-4 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10 disabled:opacity-50"
+            style={{
+              backgroundColor: "var(--button-bg)",
+              color: "var(--button-text)",
+              border: "1px solid var(--border)",
+            }}
           >
             {isSubmitting ? (
               <Loader2 className="animate-spin" size={16} />
@@ -203,17 +217,30 @@ const SettingCard = ({
   onToggle: () => void;
 }) => (
   <div
-    className={`p-6 rounded-[2rem] border transition-all flex items-center justify-between gap-4 ${enabled ? "bg-indigo-500/10 border-indigo-500/30 shadow-lg shadow-indigo-500/5" : "bg-slate-900/40 border-slate-800/50"}`}
+    className="p-6 rounded-[2rem] border transition-all flex items-center justify-between gap-4"
+    style={{
+      backgroundColor: enabled ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
+      borderColor: "var(--border)",
+      boxShadow: enabled ? "0 15px 40px rgba(255,255,255,0.03)" : undefined,
+    }}
   >
     <div className="flex items-center gap-4">
       <div
-        className={`w-12 h-12 rounded-xl shrink-0 grid place-items-center transition-colors ${enabled ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20" : "bg-slate-800 text-slate-500"}`}
+        className="w-12 h-12 rounded-xl shrink-0 grid place-items-center transition-colors"
+        style={{
+          backgroundColor: enabled ? "var(--button-bg)" : "rgba(255,255,255,0.06)",
+          color: enabled ? "var(--button-text)" : "var(--muted)",
+          boxShadow: enabled ? "0 15px 30px rgba(255,255,255,0.08)" : undefined,
+        }}
       >
-        {React.cloneElement(icon as React.ReactElement<any>, { size: 20 })}
+        {React.cloneElement(icon as React.ReactElement<any>, {
+          size: 20,
+          color: enabled ? "var(--button-text)" : "var(--muted)",
+        })}
       </div>
       <div>
-        <p className="font-bold text-slate-100 mb-0.5">{title}</p>
-        <p className="text-xs text-slate-500 leading-relaxed">{desc}</p>
+        <p className="font-bold mb-0.5" style={{ color: "var(--text)" }}>{title}</p>
+        <p className="text-xs leading-relaxed" style={{ color: "var(--muted)" }}>{desc}</p>
       </div>
     </div>
     <Toggle enabled={enabled} onChange={onToggle} />
@@ -229,14 +256,20 @@ const Toggle = ({
 }) => (
   <button
     onClick={onChange}
-    className={`${
-      enabled ? "bg-indigo-600" : "bg-slate-800"
-    } relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none ring-offset-slate-950 focus:ring-2 focus:ring-indigo-500`}
+    className="relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2"
+    style={{
+      backgroundColor: enabled ? "var(--button-bg)" : "var(--border)",
+      boxShadow: "inset 0 0 0 1px var(--border)",
+      color: "var(--button-text)",
+    }}
   >
     <span
       className={`${
         enabled ? "translate-x-6" : "translate-x-1"
-      } inline-block h-5 w-5 transform rounded-full bg-white shadow-xl transition-transform duration-200`}
+      } inline-block h-5 w-5 transform rounded-full shadow-xl transition-transform duration-200`}
+      style={{
+        backgroundColor: enabled ? "var(--button-text)" : "var(--surface)",
+      }}
     />
   </button>
 );

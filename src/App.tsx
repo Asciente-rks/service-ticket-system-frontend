@@ -12,12 +12,14 @@ import NotificationsPage from "./pages/NotificationsPage";
 import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Settings from "./components/Settings";
+import { ThemeProvider } from "./theme";
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
 
         <Route
           path="/dashboard"
@@ -77,6 +79,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </Router>
+  </ThemeProvider>
   );
 }
 

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import api from "../services/api";
 import type { Ticket, TicketStatus, User, Role } from "../types";
 import { getLoggedInUser } from "../utils/auth";
+import { getStatusMeta } from "../utils/labelStyles";
 
 interface Props {
   isOpen: boolean;
@@ -23,6 +24,7 @@ const EditTicketModal = ({
   roles,
 }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -30,6 +32,7 @@ const EditTicketModal = ({
     statusId: "",
     assigneeId: "",
   });
+  const dropdownGroupRef = useRef<HTMLDivElement>(null);
 
   const currentUser = getLoggedInUser();
 
@@ -55,6 +58,31 @@ const EditTicketModal = ({
       });
     }
   }, [isOpen, ticket]);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        dropdownGroupRef.current &&
+        !dropdownGroupRef.current.contains(event.target as Node)
+      ) {
+        setOpenDropdown(null);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
 
   const superAdminRoleId = roles.find((r) =>
     ["superadmin", "super admin"].includes(r.name.toLowerCase()),
@@ -92,6 +120,38 @@ const EditTicketModal = ({
   );
 
   const canEditCoreDetails = isAdmin || isReporter;
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "High":
+        return "#ef4444";
+      case "Medium":
+        return "#f97316";
+      case "Low":
+        return "#22c55e";
+      default:
+        return "var(--text)";
+    }
+  };
+
+  const getStatusColor = (statusName: string) => {
+    switch (statusName) {
+      case "Resolved":
+        return "#22c55e";
+      case "In Progress":
+        return "#f97316";
+      case "Open":
+        return "#0ea5e9";
+      case "Closed":
+        return "var(--muted)";
+      case "Ready for QA":
+        return "#8B5CF6";
+      case "Error Persists":
+        return "#ef4444";
+      default:
+        return "var(--muted)";
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -155,125 +215,233 @@ const EditTicketModal = ({
 
   return (
     <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-3xl p-8 shadow-2xl">
-        <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-6">
-          Edit Ticket
-        </h2>
+      <div
+        className="w-full max-w-4xl rounded-[2rem] border p-8 shadow-2xl"
+        style={{
+          backgroundColor: "var(--surface)",
+          borderColor: "var(--border)",
+          color: "var(--text)",
+        }}
+      >
+        <div className="mb-6 border-b border-[var(--border)] pb-4">
+          <h2 className="text-2xl font-black uppercase tracking-[0.25em]" style={{ color: "var(--text)" }}>
+            Edit Ticket
+          </h2>
+          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+            Update ticket details and assignments.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">
-              Title
-            </label>
-            <input
-              required
-              disabled={!canEditCoreDetails}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none transition disabled:opacity-50"
-              value={formData.title}
-              onChange={(e) =>
-                setFormData({ ...formData, title: e.target.value })
-              }
-            />
-          </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
+            <div className="space-y-5">
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
+                  Title
+                </label>
+                <input
+                  required
+                  disabled={!canEditCoreDetails}
+                  className="w-full rounded-3xl px-4 py-3 outline-none transition"
+                  style={{
+                    backgroundColor: "var(--input)",
+                    border: "1px solid var(--border)",
+                    color: "var(--input-text)",
+                  }}
+                  value={formData.title}
+                  onChange={(e) =>
+                    setFormData({ ...formData, title: e.target.value })
+                  }
+                />
+              </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">
-              Description
-            </label>
-            <textarea
-              required
-              disabled={!canEditCoreDetails}
-              rows={3}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none resize-none transition disabled:opacity-50"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">
-                Priority
-              </label>
-              <select
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none"
-                value={formData.priority}
-                onChange={(e) =>
-                  setFormData({ ...formData, priority: e.target.value as any })
-                }
-              >
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-              </select>
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
+                  Description
+                </label>
+                <textarea
+                  required
+                  disabled={!canEditCoreDetails}
+                  rows={4}
+                  className="w-full rounded-3xl px-4 py-3 outline-none resize-none transition"
+                  style={{
+                    backgroundColor: "var(--input)",
+                    border: "1px solid var(--border)",
+                    color: "var(--input-text)",
+                  }}
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">
-                Status
-              </label>
-              <select
-                required
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none"
-                value={formData.statusId}
-                onChange={(e) =>
-                  setFormData({ ...formData, statusId: e.target.value })
-                }
-              >
-                <option value="" disabled>
-                  Select Status
-                </option>
-                {statuses.map((s) => (
-                  <option key={s.id} value={String(s.id)}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-4" ref={dropdownGroupRef}>
+              <div className="relative">
+                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
+                  Assign To
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setOpenDropdown((prev) => (prev === "assign" ? null : "assign"))}
+                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
+                  style={{
+                    backgroundColor: "var(--input)",
+                    border: "1px solid var(--border)",
+                    color: "var(--input-text)",
+                  }}
+                >
+                  {formData.assigneeId
+                    ? users.find((user) => String(user.id) === formData.assigneeId)?.name
+                    : "Select Assignee"}
+                </button>
+                {openDropdown === "assign" && (
+                  <div
+                    className="absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-3xl border shadow-2xl z-20"
+                    style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
+                  >
+                    {filteredUsers.map((user) => (
+                      <button
+                        key={user.id}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, assigneeId: String(user.id) });
+                          setOpenDropdown(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {user.name} ({user.email})
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
+                  Status
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setOpenDropdown((prev) => (prev === "status" ? null : "status"))}
+                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
+                  style={{
+                    backgroundColor: "var(--input)",
+                    border: "1px solid var(--border)",
+                    color: formData.statusId
+                      ? getStatusColor(
+                          statuses.find((s) => String(s.id) === formData.statusId)?.name || ""
+                        )
+                      : "var(--input-text)",
+                  }}
+                >
+                  {formData.statusId
+                    ? statuses.find((s) => String(s.id) === formData.statusId)?.name
+                    : "Select Status"}
+                </button>
+                {openDropdown === "status" && (
+                  <div
+                    className="absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-3xl shadow-2xl z-20"
+                    style={{ backgroundColor: "var(--surface)" }}
+                  >
+                    {statuses.map((s) => {
+                      const statusMeta = getStatusMeta(s.name);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, statusId: String(s.id) });
+                            setOpenDropdown(null);
+                          }}
+                          className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
+                          style={{
+                            color: getStatusColor(s.name),
+                          }}
+                        >
+                          <span className="flex items-center gap-2">
+                            <span>{statusMeta.icon}</span>
+                            <span>{s.name}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="relative">
+                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
+                  Priority
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setOpenDropdown((prev) => (prev === "priority" ? null : "priority"))}
+                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
+                  style={{
+                    backgroundColor: "var(--input)",
+                    border: "1px solid var(--border)",
+                    color: "var(--input-text)",
+                  }}
+                >
+                  {formData.priority || "Select Priority"}
+                </button>
+                {openDropdown === "priority" && (
+                  <div
+                    className="absolute left-0 right-0 mt-2 rounded-3xl border shadow-2xl z-20"
+                    style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
+                  >
+                    {[
+                      { value: "Low", label: "Low" },
+                      { value: "Medium", label: "Medium" },
+                      { value: "High", label: "High" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, priority: option.value });
+                          setOpenDropdown(null);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
+                        style={{
+                          color: getPriorityColor(option.value),
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-[10px] font-black text-slate-500 uppercase mb-1.5 tracking-widest">
-              Reassign To
-            </label>
-            <select
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-slate-200 focus:border-indigo-500 outline-none cursor-pointer"
-              value={formData.assigneeId}
-              onChange={(e) =>
-                setFormData({ ...formData, assigneeId: e.target.value })
-              }
-            >
-              {users.length === 0 ? (
-                <option value="" disabled>
-                  No users available (Check permissions)
-                </option>
-              ) : (
-                <>
-                  <option value="">Unassigned</option>
-                  {filteredUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} ({user.email})
-                    </option>
-                  ))}
-                </>
-              )}
-            </select>
-          </div>
-
-          <div className="flex gap-3 mt-8">
+          <div className="flex flex-col sm:flex-row gap-3 mt-8">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-slate-800 text-slate-400 font-bold rounded-xl hover:bg-slate-800 transition"
+              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
+              style={{
+                backgroundColor: "transparent",
+                border: "1px solid var(--border)",
+                color: "var(--text)",
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 px-6 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition active:scale-95 disabled:bg-slate-800"
+              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
+              style={{
+                backgroundColor: "var(--button-bg)",
+                color: "var(--button-text)",
+                border: "1px solid var(--border)",
+                opacity: isSubmitting ? 0.6 : 1,
+              }}
             >
               {isSubmitting ? "Saving..." : "Save Changes"}
             </button>

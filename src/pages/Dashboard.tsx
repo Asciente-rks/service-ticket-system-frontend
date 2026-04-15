@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
+import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle } from "lucide-react";
 import api from "../services/api";
 import type { Ticket, TicketStatus, User, Role } from "../types";
 import CreateTicketModal from "../components/CreateTicketModal";
@@ -27,6 +28,12 @@ const Dashboard = () => {
     "all" | "assigned" | "reported" | "closed"
   >("all");
   const [prioritySort, setPrioritySort] = useState<string>("All");
+  const [statusSort, setStatusSort] = useState<string>("All");
+  const [dateSort, setDateSort] = useState<"newest" | "oldest">("newest");
+  const [isPriorityMenuOpen, setIsPriorityMenuOpen] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const priorityRef = useRef<HTMLDivElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
 
   const currentUser = getLoggedInUser();
 
@@ -59,6 +66,28 @@ const Dashboard = () => {
   }, [fetchData]);
 
   useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (
+        priorityRef.current &&
+        !priorityRef.current.contains(event.target as Node)
+      ) {
+        setIsPriorityMenuOpen(false);
+      }
+      if (
+        statusRef.current &&
+        !statusRef.current.contains(event.target as Node)
+      ) {
+        setIsStatusMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, []);
+
+  useEffect(() => {
     const ticketId = searchParams.get("ticketId");
     if (ticketId && tickets.length > 0) {
       const ticket = tickets.find((t) => String(t.id) === ticketId);
@@ -81,6 +110,25 @@ const Dashboard = () => {
     return match?.name || "Unknown";
   };
 
+  const getStatusColor = (statusName: string) => {
+    switch (statusName) {
+      case "Resolved":
+        return "#22c55e";
+      case "In Progress":
+        return "#f97316";
+      case "Open":
+        return "#0ea5e9";
+      case "Closed":
+        return "var(--muted)";
+      case "Ready for QA":
+        return "#8b5cf6";
+      case "Error Persists":
+        return "#ef4444";
+      default:
+        return "var(--text)";
+    }
+  };
+
   const getUserName = (input: any): string => {
     if (!input) return "Unassigned";
 
@@ -97,33 +145,61 @@ const Dashboard = () => {
     );
   };
 
-  const getStatusStyle = (statusName: string) => {
-    switch (statusName) {
-      case "Open":
-        return "border-emerald-500 text-emerald-500 bg-emerald-500/5";
-      case "In Progress":
-        return "border-amber-500 text-amber-500 bg-amber-500/5";
-      case "Resolved":
-        return "border-blue-500 text-blue-500 bg-blue-500/5";
-      case "Closed":
-        return "border-slate-600 text-slate-500 opacity-50";
-      default:
-        return "border-slate-700 text-slate-400";
-    }
-  };
-
   const getPriorityStyle = (priority: string) => {
     switch (priority) {
       case "High":
-        return "bg-red-500/10 text-red-500 border-red-500/20";
+        return "border border-red-500 text-red-500 bg-transparent";
       case "Medium":
-        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+        return "border border-orange-500 text-orange-500 bg-transparent";
       case "Low":
-        return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+        return "border border-emerald-500 text-emerald-500 bg-transparent";
       default:
-        return "bg-slate-500/10 text-slate-400 border-slate-700";
+        return "border border-white/10 text-[var(--muted)] bg-transparent";
     }
   };
+
+  const getStatusMeta = (statusName: string) => {
+    switch (statusName) {
+      case "Resolved":
+        return {
+          icon: <CheckCircle className="h-4 w-4 text-emerald-500" />,
+          style: "border border-emerald-500 text-emerald-500 bg-transparent",
+        };
+      case "In Progress":
+        return {
+          icon: <Clock className="h-4 w-4 text-orange-500" />,
+          style: "border border-orange-500 text-orange-500 bg-transparent",
+        };
+      case "Open":
+        return {
+          icon: <Inbox className="h-4 w-4 text-sky-500" />,
+          style: "border border-sky-500 text-sky-500 bg-transparent",
+        };
+      case "Closed":
+        return {
+          icon: <Lock className="h-4 w-4 text-[var(--muted)]" />,
+          style: "border border-[var(--muted)] text-[var(--muted)] bg-transparent",
+        };
+      case "Ready for QA":
+        return {
+          icon: <Eye className="h-4 w-4 text-[#8B5CF6]" />,
+          style: "border border-[#8B5CF6] text-[#8B5CF6] bg-transparent",
+        };
+      case "Error Persists":
+        return {
+          icon: <AlertTriangle className="h-4 w-4 text-rose-500" />,
+          style: "border border-rose-500 text-rose-500 bg-transparent",
+        };
+      default:
+        return {
+          icon: <Circle className="h-4 w-4 text-[var(--muted)]" />,
+          style: "border border-[var(--muted)] text-[var(--muted)] bg-transparent",
+        };
+    }
+  };
+
+  const selectedStatusMeta =
+    statusSort !== "All" ? getStatusMeta(statusSort) : null;
 
   const adminRoleId = roles.find((r) =>
     ["admin", "administrator"].includes(r.name.toLowerCase()),
@@ -178,31 +254,45 @@ const Dashboard = () => {
     if (prioritySort !== "All" && ticket.priority !== prioritySort)
       return false;
 
+    if (statusSort !== "All" && statusName !== statusSort) return false;
+
     return true;
   });
 
+  const sortedTickets = [...filteredTickets].sort((a: any, b: any) => {
+    const aDate = new Date(a.created_at || a.createdAt || a.createdAt || 0).getTime();
+    const bDate = new Date(b.created_at || b.createdAt || b.createdAt || 0).getTime();
+    return dateSort === "newest" ? bDate - aDate : aDate - bDate;
+  });
+
   return (
-    <div className="min-h-screen bg-slate-950 p-6 md:p-10 text-white">
+    <div className="min-h-screen p-6 md:p-10" style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}>
       <div className="max-w-7xl mx-auto">
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
           <div>
-            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 uppercase tracking-tighter">
+            <h1 className="text-4xl font-extrabold uppercase tracking-tighter" style={{ color: "var(--text)" }}>
               Service Desk
             </h1>
-            <p className="text-slate-500 mt-1 font-medium italic font-mono text-sm">
+            <p className="mt-1 font-medium italic font-mono text-sm" style={{ color: "var(--muted)" }}>
               Active Tickets Syncing with TiDB
             </p>
           </div>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
+            className="px-6 py-3 rounded-xl font-bold transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10 active:scale-95"
+            style={{
+              backgroundColor: "var(--button-bg)",
+              color: "var(--button-text)",
+              border: "1px solid var(--border)",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.18)",
+            }}
           >
             + Create Ticket
           </button>
         </header>
 
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 bg-slate-900/30 p-2 rounded-2xl border border-slate-800/50">
-          <div className="flex items-center gap-1 p-1 bg-slate-950 rounded-xl">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8 p-2 rounded-2xl border" style={{ backgroundColor: "rgba(255,255,255,0.03)", borderColor: "var(--border)" }}>
+          <div className="flex items-center gap-1 p-1 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.02)" }}>
             {[
               { id: "all", label: "All Tickets" },
               { id: "assigned", label: "Assigned to Me" },
@@ -214,43 +304,207 @@ const Dashboard = () => {
                 onClick={() => setFilterType(tab.id as any)}
                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
                   filterType === tab.id
-                    ? "bg-indigo-600 text-white shadow-lg"
-                    : "text-slate-500 hover:text-slate-300"
+                    ? "text-[var(--text)] bg-[rgba(255,255,255,0.08)]"
+                    : "text-[var(--muted)] hover:bg-[var(--surface)]"
                 }`}
+                style={
+                  filterType === tab.id
+                    ? {
+                        border: "1px solid var(--border)",
+                      }
+                    : undefined
+                }
               >
                 {tab.label}
               </button>
             ))}
           </div>
 
-          <div className="flex items-center gap-3 pr-4">
-            <span className="text-[9px] font-black text-slate-600 uppercase tracking-[0.2em]">
+          <div className="flex items-center gap-3 pr-4 flex-wrap">
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "var(--muted)" }}>
               Priority:
             </span>
-            <select
-              value={prioritySort}
-              onChange={(e) => setPrioritySort(e.target.value)}
-              className="bg-transparent text-xs font-bold text-slate-300 outline-none cursor-pointer"
-            >
-              <option value="All">All Priorities</option>
-              <option value="High">High Only</option>
-              <option value="Medium">Medium Only</option>
-              <option value="Low">Low Only</option>
-            </select>
+            <div className="relative" ref={priorityRef}>
+              <button
+                type="button"
+                onClick={() => setIsPriorityMenuOpen((prev) => !prev)}
+                className="inline-flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-widest transition"
+                style={{
+                  backgroundColor: "var(--surface)",
+                  color: "var(--text)",
+                  borderColor: "var(--border)",
+                  minWidth: "10rem",
+                }}
+              >
+                <span>{prioritySort}</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+              {isPriorityMenuOpen && (
+                <div
+                  className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-2xl border shadow-2xl"
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    borderColor: "var(--border)",
+                  }}
+                >
+                  {[
+                    { value: "All", label: "All Priorities" },
+                    { value: "High", label: "High Only" },
+                    { value: "Medium", label: "Medium Only" },
+                    { value: "Low", label: "Low Only" },
+                  ].map((option) => {
+                    const optionColor =
+                      option.value === "High"
+                        ? "#ef4444"
+                        : option.value === "Medium"
+                        ? "#f97316"
+                        : option.value === "Low"
+                        ? "#22c55e"
+                        : "var(--text)";
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setPrioritySort(option.value);
+                          setIsPriorityMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 text-xs uppercase tracking-widest transition dropdown-option ${prioritySort === option.value ? "selected" : ""}`}
+                        style={{
+                          color: optionColor,
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "var(--muted)" }}>
+              Status:
+            </span>
+            <div className="relative" ref={statusRef}>
+              <button
+                type="button"
+                onClick={() => setIsStatusMenuOpen((prev) => !prev)}
+                className="inline-flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-widest transition"
+                style={{
+                  backgroundColor: "var(--surface)",
+                  color: "var(--text)",
+                  borderColor: "var(--border)",
+                  minWidth: "10rem",
+                }}
+              >
+                <span className="inline-flex items-center gap-2">
+                  {selectedStatusMeta?.icon}
+                  <span>{statusSort}</span>
+                </span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  className="h-4 w-4"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+              {isStatusMenuOpen && (
+                <div
+                  className="absolute right-0 z-50 mt-2 w-44 overflow-hidden rounded-2xl border shadow-2xl"
+                  style={{
+                    backgroundColor: "var(--surface)",
+                    borderColor: "var(--border)",
+                  }}
+                >
+                  {[{ value: "All", label: "All Statuses" }, ...statuses.map((s) => ({ value: s.name, label: s.name }))].map((option) => {
+                    const optionColor =
+                      option.value === "All"
+                        ? "var(--text)"
+                        : getStatusColor(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setStatusSort(option.value);
+                          setIsStatusMenuOpen(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 text-xs uppercase tracking-widest transition dropdown-option ${statusSort === option.value ? "selected" : ""}`}
+                        style={{
+                          color: optionColor,
+                        }}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          {option.value !== "All" && getStatusMeta(option.value).icon}
+                          <span>{option.label}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "var(--muted)" }}>
+                Sort:
+              </span>
+              {[
+                { value: "newest", label: "Newest" },
+                { value: "oldest", label: "Oldest" },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setDateSort(option.value as "newest" | "oldest")}
+                  className="rounded-full px-3 py-2 text-[10px] font-black uppercase tracking-widest transition"
+                  style={
+                    dateSort === option.value
+                      ? {
+                          backgroundColor: "rgba(255,255,255,0.12)",
+                          color: "var(--text)",
+                          border: "1px solid var(--border)",
+                        }
+                      : {
+                          backgroundColor: "transparent",
+                          color: "var(--muted)",
+                          border: "1px solid transparent",
+                        }
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-slate-400 font-mono text-xs">
+            <div className="w-10 h-10 rounded-full animate-spin mb-4" style={{ border: "4px solid var(--button-text)", borderTopColor: "transparent" }}></div>
+            <p className="font-mono text-xs" style={{ color: "var(--muted)" }}>
               Synchronizing Statuses...
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTickets.length > 0 ? (
-              filteredTickets.map((t: any) => {
+            {sortedTickets.length > 0 ? (
+              sortedTickets.map((t: any) => {
                 const ticket = t;
                 const statusName = getStatusName(ticket);
                 const assigneeName = getUserName(
@@ -263,15 +517,20 @@ const Dashboard = () => {
                   <div
                     key={ticket.id}
                     onClick={() => setSelectedTicket(ticket)}
-                    className="bg-slate-900/50 backdrop-blur-sm p-6 rounded-3xl border border-slate-800 hover:border-indigo-500/40 transition-all flex flex-col group cursor-pointer shadow-lg hover:shadow-indigo-500/5 relative overflow-hidden"
+                    className="backdrop-blur-sm p-6 rounded-3xl border transition-all flex flex-col group cursor-pointer shadow-lg relative overflow-hidden"
+                    style={{
+                      backgroundColor: "var(--surface)",
+                      borderColor: "var(--border)",
+                      boxShadow: "0 20px 40px rgba(0,0,0,0.18)",
+                    }}
                   >
                     <div className="flex justify-between items-center mb-4">
                       <span
-                        className={`px-2.5 py-1 border rounded-lg text-[10px] font-black uppercase tracking-widest ${getPriorityStyle(ticket.priority)}`}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${getPriorityStyle(ticket.priority)}`}
                       >
                         {ticket.priority}
                       </span>
-                      <span className="text-slate-600 text-[10px] font-mono">
+                      <span className="text-[10px] font-mono" style={{ color: "var(--muted)" }}>
                         {ticket.created_at || ticket.createdAt
                           ? new Date(
                               ticket.created_at || ticket.createdAt,
@@ -281,33 +540,36 @@ const Dashboard = () => {
                     </div>
 
                     <div className="flex-grow">
-                      <h3 className="text-xl font-bold text-slate-100 group-hover:text-indigo-400 transition-colors mb-2 line-clamp-1">
+                      <h3 className="text-xl font-bold transition-colors mb-2 line-clamp-1" style={{ color: "var(--text)" }}>
                         {ticket.title}
                       </h3>
-                      <p className="text-slate-400 text-sm leading-relaxed line-clamp-3 mb-6">
+                      <p className="text-sm leading-relaxed line-clamp-3 mb-6" style={{ color: "var(--muted)" }}>
                         {ticket.description}
                       </p>
                     </div>
 
                     <div className="mb-6">
-                      <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1">
+                      <p className="text-[9px] font-black uppercase tracking-[0.2em] mb-1" style={{ color: "var(--muted)" }}>
                         Assignee
                       </p>
-                      <p className="text-xs font-bold text-indigo-300">
+                      <p className="text-xs font-bold" style={{ color: "var(--text)" }}>
                         {assigneeName}
                       </p>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-800/50 flex justify-between items-center">
+                    <div className="pt-4 border-t flex justify-between items-center" style={{ borderColor: "var(--border)" }}>
                       <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${statusName === "Open" ? "bg-emerald-500" : "bg-slate-500"}`}
-                        ></div>
-                        <span
-                          className={`text-[11px] font-black border-b-2 pb-0.5 uppercase tracking-tighter ${getStatusStyle(statusName)}`}
-                        >
-                          {statusName}
-                        </span>
+                        {(() => {
+                          const statusMeta = getStatusMeta(statusName);
+                          return (
+                            <span
+                              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-tighter ${statusMeta.style}`}
+                            >
+                              {statusMeta.icon}
+                              {statusName}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {isAdmin && (
                         <button
@@ -315,7 +577,13 @@ const Dashboard = () => {
                             e.stopPropagation();
                             setApprovingTicketId(ticket.id);
                           }}
-                          className="text-[10px] font-black bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-500 transition-all uppercase tracking-widest shadow-lg shadow-indigo-600/20"
+                          className="text-[10px] font-black px-4 py-2 rounded-lg transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10 uppercase tracking-widest"
+                          style={{
+                            backgroundColor: "var(--button-bg)",
+                            color: "var(--button-text)",
+                            border: "1px solid var(--border)",
+                            boxShadow: "0 10px 25px rgba(0,0,0,0.16)",
+                          }}
                         >
                           Review
                         </button>
@@ -325,8 +593,8 @@ const Dashboard = () => {
                 );
               })
             ) : (
-              <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-800 rounded-3xl">
-                <p className="text-slate-500 font-mono">
+              <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl" style={{ borderColor: "var(--border)" }}>
+                <p className="font-mono" style={{ color: "var(--muted)" }}>
                   No active tickets found in TiDB.
                 </p>
               </div>

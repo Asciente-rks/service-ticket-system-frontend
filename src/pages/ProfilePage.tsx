@@ -135,44 +135,65 @@ const ProfilePage = () => {
   return (
     <div className="max-w-5xl mx-auto p-4">
       <div className="mb-12">
-        <h1 className="text-5xl font-black text-white uppercase tracking-tighter">
+        <h1 className="text-5xl font-black uppercase tracking-tighter" style={{ color: "var(--text)" }}>
           My Identity
         </h1>
-        <p className="text-slate-500 text-sm font-medium">
+        <p className="text-sm font-medium" style={{ color: "var(--muted)" }}>
           Manage your profile information and authentication credentials
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-1">
-          <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 text-center shadow-2xl relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-indigo-600/20 to-cyan-600/20"></div>
+          <div
+          className="rounded-[2.5rem] p-8 text-center shadow-2xl relative overflow-hidden"
+          style={{
+            backgroundColor: "var(--surface)",
+            borderColor: "var(--border)",
+            borderWidth: 1,
+            borderStyle: "solid",
+          }}
+        >
             <div className="relative pt-6">
-              <div className="w-28 h-24 bg-indigo-600 rounded-3xl mx-auto mb-6 flex items-center justify-center text-4xl font-black text-white shadow-2xl ring-8 ring-slate-950">
+              <div
+                className="w-28 h-24 rounded-3xl mx-auto mb-6 flex items-center justify-center text-4xl font-black shadow-2xl"
+                style={{
+                  backgroundColor: "var(--input)",
+                  color: "var(--text)",
+                  border: "1px solid var(--border)",
+                }}
+              >
                 {(userData?.name || userData?.email || "A")[0].toUpperCase()}
               </div>
-              <h2 className="text-2xl font-black text-white tracking-tight leading-none">
+              <h2 className="text-2xl font-black tracking-tight leading-none" style={{ color: "var(--text)" }}>
                 {userData?.name || "Administrator"}
               </h2>
-              <span className="inline-block mt-2 px-3 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[9px] font-black uppercase tracking-widest rounded-lg">
+              <span
+                className="inline-block mt-2 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest"
+                style={{
+                  color: "var(--muted)",
+                  border: "1px solid var(--border)",
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                }}
+              >
                 {roleName}
               </span>
             </div>
 
             <div className="mt-10 pt-10 border-t border-slate-800/50 text-left space-y-6">
               <div>
-                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">
+                <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>
                   System Email
                 </p>
-                <p className="text-sm text-slate-300 font-mono tracking-tighter">
+                <p className="text-sm font-mono tracking-tighter" style={{ color: "var(--text)", opacity: 0.85 }}>
                   {userData?.email}
                 </p>
               </div>
               <div>
-                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest mb-1">
+                <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>
                   Account UUID
                 </p>
-                <p className="text-[9px] text-slate-500 font-mono break-all opacity-50">
+                <p className="text-[9px] font-mono break-all opacity-50" style={{ color: "var(--muted)" }}>
                   {userData?.id}
                 </p>
               </div>
@@ -181,7 +202,15 @@ const ProfilePage = () => {
         </div>
 
         <div className="lg:col-span-2">
-          <div className="bg-slate-900/50 border border-slate-800/60 rounded-[2.5rem] p-10 shadow-2xl backdrop-blur-xl">
+          <div
+            className="rounded-[2.5rem] p-10 shadow-2xl"
+            style={{
+              backgroundColor: "var(--surface)",
+              borderColor: "var(--border)",
+              borderWidth: 1,
+              borderStyle: "solid",
+            }}
+          >
             <form onSubmit={handleSubmit} className="space-y-8">
               {status.text && (
                 <div
@@ -200,12 +229,17 @@ const ProfilePage = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">
+                  <label className="block text-[10px] font-black uppercase mb-3 tracking-widest" style={{ color: "var(--muted)" }}>
                     Display Name
                   </label>
                   <input
                     required
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-slate-200 focus:border-indigo-500 outline-none transition shadow-inner"
+                    className="w-full rounded-2xl px-5 py-4 text-sm outline-none transition shadow-inner"
+                    style={{
+                      backgroundColor: "var(--input)",
+                      border: "1px solid var(--border)",
+                      color: "var(--input-text)",
+                    }}
                     value={formData.name}
                     onChange={(e) =>
                       setFormData({ ...formData, name: e.target.value })
@@ -213,13 +247,18 @@ const ProfilePage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">
+                  <label className="block text-[10px] font-black uppercase mb-3 tracking-widest" style={{ color: "var(--muted)" }}>
                     Email Address
                   </label>
                   <input
                     required
                     type="email"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-slate-200 focus:border-indigo-500 outline-none transition shadow-inner"
+                    className="w-full rounded-2xl px-5 py-4 text-sm outline-none transition shadow-inner"
+                    style={{
+                      backgroundColor: "var(--input)",
+                      border: "1px solid var(--border)",
+                      color: "var(--input-text)",
+                    }}
                     value={formData.email}
                     onChange={(e) =>
                       setFormData({ ...formData, email: e.target.value })
@@ -230,13 +269,18 @@ const ProfilePage = () => {
 
               <div className="pt-8 border-t border-slate-800/50 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">
+                  <label className="block text-[10px] font-black uppercase mb-3 tracking-widest" style={{ color: "var(--muted)" }}>
                     New Password
                   </label>
                   <input
                     type="password"
                     placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-slate-200 focus:border-indigo-500 outline-none transition shadow-inner"
+                    className="w-full rounded-2xl px-5 py-4 text-sm outline-none transition shadow-inner"
+                    style={{
+                      backgroundColor: "var(--input)",
+                      border: "1px solid var(--border)",
+                      color: "var(--input-text)",
+                    }}
                     value={formData.password}
                     onChange={(e) =>
                       setFormData({ ...formData, password: e.target.value })
@@ -244,13 +288,18 @@ const ProfilePage = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-3 tracking-widest">
+                  <label className="block text-[10px] font-black uppercase mb-3 tracking-widest" style={{ color: "var(--muted)" }}>
                     Confirm New Password
                   </label>
                   <input
                     type="password"
                     placeholder="••••••••"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-5 py-4 text-sm text-slate-200 focus:border-indigo-500 outline-none transition shadow-inner"
+                    className="w-full rounded-2xl px-5 py-4 text-sm outline-none transition shadow-inner"
+                    style={{
+                      backgroundColor: "var(--input)",
+                      border: "1px solid var(--border)",
+                      color: "var(--input-text)",
+                    }}
                     value={formData.confirmPassword}
                     onChange={(e) =>
                       setFormData({
@@ -265,7 +314,12 @@ const ProfilePage = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full md:w-auto px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl transition-all shadow-2xl shadow-indigo-600/30 active:scale-95 uppercase tracking-[0.2em] text-[10px] disabled:opacity-50"
+                className="w-full md:w-auto px-12 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] transition duration-200 ease-out shadow-2xl shadow-black/20 hover:-translate-y-0.5 hover:shadow-black/30 disabled:opacity-50"
+                style={{
+                  backgroundColor: "var(--button-bg)",
+                  color: "var(--button-text)",
+                  border: "1px solid var(--border)",
+                }}
               >
                 {isSubmitting ? "Syncing Profile..." : "Save Account Changes"}
               </button>

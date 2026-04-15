@@ -47,25 +47,31 @@ const UserManagement = () => {
     <div className="max-w-6xl mx-auto p-4 md:p-8">
       <div className="flex justify-between items-end mb-10">
         <div>
-          <h1 className="text-4xl font-black text-white uppercase tracking-tighter">
+          <h1 className="text-4xl font-black uppercase tracking-tighter" style={{ color: "var(--text)" }}>
             Team Management
           </h1>
-          <p className="text-slate-500 text-xs font-mono mt-1 flex items-center gap-2">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+          <p className="text-xs font-mono mt-1 flex items-center gap-2" style={{ color: "var(--muted)" }}>
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: "#22c55e" }}></span>
             TiDB Distributed Session Active
           </p>
         </div>
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="bg-indigo-600 hover:bg-indigo-500 px-8 py-3 rounded-2xl font-black text-sm transition-all shadow-xl shadow-indigo-600/20 active:scale-95 uppercase tracking-widest"
+          className="px-8 py-3 rounded-3xl font-black text-sm uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10 hover:bg-[var(--card)] active:scale-95"
+          style={{
+            backgroundColor: "var(--button-bg)",
+            color: "var(--button-text)",
+            border: "1px solid var(--border)",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.12)",
+          }}
         >
           + Add Member
         </button>
       </div>
 
-      <div className="bg-slate-900/40 border border-slate-800/60 rounded-3xl overflow-hidden backdrop-blur-xl shadow-2xl">
+      <div className="rounded-3xl overflow-hidden shadow-2xl" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
         <table className="w-full text-left border-collapse">
-          <thead className="bg-slate-800/30 text-slate-500 text-[10px] uppercase tracking-[0.3em] font-black">
+          <thead className="text-[10px] uppercase tracking-[0.3em] font-black" style={{ color: "var(--muted)", backgroundColor: "var(--surface)" }}>
             <tr>
               <th className="p-6">Member Profile</th>
               <th className="p-6">System Email</th>
@@ -73,7 +79,7 @@ const UserManagement = () => {
               <th className="p-6 text-right">Management</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/40">
+          <tbody className="divide-y" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
             {loading ? (
               <tr>
                 <td
@@ -89,32 +95,44 @@ const UserManagement = () => {
                 return (
                   <tr
                     key={user.id}
-                    className="hover:bg-indigo-500/[0.03] transition-colors group"
+                    className="transition-colors group"
+                    style={{ backgroundColor: "transparent" }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.backgroundColor = "rgba(255,255,255,0.04)";
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLTableRowElement).style.backgroundColor = "transparent";
+                    }}
                   >
                     <td className="p-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-cyan-500/20 border border-indigo-500/20 flex items-center justify-center font-black text-indigo-400 text-sm shadow-inner">
+                        <div className="w-10 h-10 rounded-xl border flex items-center justify-center font-black text-sm shadow-inner"
+                          style={{
+                            backgroundColor: "var(--surface)",
+                            borderColor: "var(--border)",
+                            color: "var(--text)",
+                          }}
+                        >
                           {user.name ? user.name[0].toUpperCase() : "?"}
                         </div>
-                        <span className="font-bold text-slate-200 group-hover:text-white transition-colors uppercase tracking-tight">
+                        <span className="font-bold transition-colors uppercase tracking-tight"
+                          style={{ color: "var(--text)" }}
+                        >
                           {user.name}
                         </span>
                       </div>
                     </td>
-                    <td className="p-6 text-slate-400 font-mono text-sm tracking-tighter">
+                    <td className="p-6 font-mono text-sm tracking-tighter" style={{ color: "var(--muted)" }}>
                       {user.email}
                     </td>
                     <td className="p-6">
                       <span
-                        className={`px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest ${
-                          ["superadmin", "super admin"].includes(
-                            roleName.toLowerCase(),
-                          )
-                            ? "border-purple-500/50 text-purple-400 bg-purple-500/5"
-                            : roleName.toLowerCase() === "admin"
-                              ? "border-rose-500/50 text-rose-400 bg-rose-500/5"
-                              : "border-slate-700 text-slate-500 bg-slate-800/50"
-                        }`}
+                        className="px-3 py-1 rounded-lg border text-[10px] font-black uppercase tracking-widest"
+                        style={{
+                          borderColor: "var(--border)",
+                          color: "var(--text)",
+                          backgroundColor: "var(--surface)",
+                        }}
                       >
                         {roleName}
                       </span>
@@ -122,7 +140,12 @@ const UserManagement = () => {
                     <td className="p-6 text-right">
                       <button
                         onClick={() => handleEdit(user)}
-                        className="inline-flex items-center gap-3 bg-slate-800/50 hover:bg-indigo-600 hover:text-white text-slate-300 px-5 py-2.5 rounded-xl border border-slate-700/50 transition-all active:scale-95 group/btn"
+                        className="inline-flex items-center gap-3 px-5 py-2.5 rounded-xl border transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10 active:scale-95 group/btn"
+                        style={{
+                          backgroundColor: "var(--button-bg)",
+                          color: "var(--button-text)",
+                          borderColor: "var(--border)",
+                        }}
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"

@@ -1,38 +1,78 @@
 import React, { useState } from "react";
 import api from "../services/api";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Settings as SettingsIcon, X } from "lucide-react";
 import LogoLight from "../assets/Logo.png";
 import LogoNoNameDark from "../assets/LogoNoNameDark.png";
 import { useTheme } from "../theme";
+
+interface DevAccount {
+  label: string;
+  email: string;
+  password: string;
+}
+
+const DEV_ACCOUNTS: DevAccount[] = [
+  { label: "Admin", email: "admin@test.com", password: "Password123!" },
+  { label: "Developer", email: "developer@test.com", password: "Password123!" },
+  { label: "Tester", email: "tester@test.com", password: "Password123!" },
+];
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [devOpen, setDevOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const performLogin = async (
+    candidateEmail: string,
+    candidatePassword: string,
+  ) => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await api.post("/auth/login", { email, password });
+      const response = await api.post("/auth/login", {
+        email: candidateEmail,
+        password: candidatePassword,
+      });
 
       localStorage.setItem("token", response.data.token);
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Something went wrong. Try again.",
-      );
+      const status = err?.response?.status;
+      if (status === 429) {
+        setError("Too many login attempts. Please wait a moment.");
+      } else if (status === 401) {
+        setError("Invalid email or password.");
+      } else {
+        setError(
+          err?.response?.data?.message || "Something went wrong. Try again.",
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await performLogin(email, password);
+  };
+
+  const handleDevPick = (account: DevAccount) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setDevOpen(false);
+    void performLogin(account.email, account.password);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 py-8" style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}>
+    <div
+      className="min-h-screen flex items-center justify-center px-6 py-8"
+      style={{ backgroundColor: "var(--bg)", color: "var(--text)" }}
+    >
       <div className="absolute top-5 right-5 flex w-24 flex-col items-center gap-3 text-center">
         <span className="text-xs uppercase tracking-[0.3em] text-[var(--text)]/80">
           {theme} mode
@@ -66,13 +106,23 @@ const Login = () => {
             alt="Logo"
             className={`h-20 w-20 mono-logo ${theme === "dark" ? "mono-logo-dark" : "mono-logo-light"}`}
           />
-          <h2 className="text-center text-3xl font-bold" style={{ color: "var(--text)" }}>
+          <h2
+            className="text-center text-3xl font-bold"
+            style={{ color: "var(--text)" }}
+          >
             Service Ticket Login
           </h2>
         </div>
 
         {error && (
-          <div className="mb-4 rounded-2xl border p-3 text-sm font-medium" style={{ borderColor: "#f87171", backgroundColor: "rgba(248,113,113,0.1)", color: "#b91c1c" }}>
+          <div
+            className="mb-4 rounded-2xl border p-3 text-sm font-medium"
+            style={{
+              borderColor: "#f87171",
+              backgroundColor: "rgba(248,113,113,0.1)",
+              color: "#b91c1c",
+            }}
+          >
             {error}
           </div>
         )}
@@ -120,6 +170,95 @@ const Login = () => {
           </button>
         </form>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setDevOpen((value) => !value)}
+        className="fixed bottom-6 right-6 z-40 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-[0.18em] shadow-lg transition hover:-translate-y-0.5"
+        style={{
+          backgroundColor: theme === "dark" ? "#0b1220" : "#ffffff",
+          borderColor: theme === "dark" ? "#ffffff" : "#000000",
+          color: theme === "dark" ? "#ffffff" : "#000000",
+        }}
+        title="Dev Tools"
+        aria-label="Dev Tools"
+      >
+        <SettingsIcon className="h-4 w-4" />
+        Dev Tools
+      </button>
+
+      {devOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setDevOpen(false)}
+            aria-hidden="true"
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Dev Tools"
+            className="fixed bottom-24 right-6 z-50 w-80 rounded-2xl border p-5 shadow-2xl"
+            style={{
+              backgroundColor: theme === "dark" ? "#000000" : "#ffffff",
+              borderColor: theme === "dark" ? "#ffffff" : "#000000",
+              color: theme === "dark" ? "#ffffff" : "#000000",
+            }}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-sm font-black uppercase tracking-[0.25em]">
+                Dev Tools
+              </h3>
+              <span
+                className="rounded-full border px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.3em]"
+                style={{
+                  borderColor: theme === "dark" ? "#ffffff" : "#000000",
+                }}
+              >
+                demo
+              </span>
+            </div>
+            <p
+              className="mb-4 text-xs"
+              style={{ color: theme === "dark" ? "#9ca3af" : "#4b5563" }}
+            >
+              Quick-login as a seeded account so portfolio reviewers don't
+              have to type anything.
+            </p>
+            <div className="flex flex-col gap-2">
+              {DEV_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => handleDevPick(account)}
+                  className="flex items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                  style={{
+                    borderColor: theme === "dark" ? "#374151" : "#d1d5db",
+                    backgroundColor: theme === "dark" ? "#0c1726" : "#f8fafc",
+                    color: theme === "dark" ? "#f8fafc" : "#020617",
+                  }}
+                >
+                  <span className="text-xs font-black uppercase tracking-[0.18em]">
+                    {account.label}
+                  </span>
+                  <code className="text-[10px] font-mono">
+                    {account.email}
+                  </code>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDevOpen(false)}
+              className="absolute top-3 right-3 rounded-full p-1 transition hover:opacity-70"
+              aria-label="Close Dev Tools"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 };

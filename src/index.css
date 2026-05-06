@@ -163,7 +163,6 @@ body {
   filter: grayscale(100%) brightness(1.35) contrast(1.2);
 }
 
-/* Dropdown option hover + selected styles used by custom dropdowns */
 .dropdown-option {
   border-radius: 1rem;
   margin: 0.125rem 0;
@@ -171,7 +170,7 @@ body {
 }
 
 html.theme-light .dropdown-option:hover {
-  /* slightly darker hover for better visibility in light theme (~12% black) */
+
   background-color: rgba(0,0,0,0.12);
 }
 
@@ -179,5 +178,3 @@ html.theme-dark .dropdown-option:hover {
   background-color: rgba(255,255,255,0.04);
 }
 
-/* Do not apply a persistent background for selected entries; hover indicates selection.
-   Selected items use text color and icons to indicate state. */

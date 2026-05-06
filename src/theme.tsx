@@ -16,7 +16,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
     const localTheme = localStorage.getItem("theme") as ThemeMode | null;
     if (sessionTheme === "light" || sessionTheme === "dark") return sessionTheme;
     if (localTheme === "light" || localTheme === "dark") return localTheme;
-    return "dark";
+    return "light";
   });
 
   useEffect(() => {

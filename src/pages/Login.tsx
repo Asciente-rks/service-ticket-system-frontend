@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../services/api";
-import { Moon, Sun, Settings as SettingsIcon, X } from "lucide-react";
+import { Moon, Sun, Settings as SettingsIcon, X, Info } from "lucide-react";
 import LogoLight from "../assets/Logo.png";
 import LogoNoNameDark from "../assets/LogoNoNameDark.png";
 import { useTheme } from "../theme";
@@ -17,13 +17,26 @@ const DEV_ACCOUNTS: DevAccount[] = [
   { label: "Tester", email: "tester@test.com", password: "Password123!" },
 ];
 
+const WAKEUP_HINT_DELAY_MS = 4000;
+
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [devOpen, setDevOpen] = useState(false);
+  const [showWakeupHint, setShowWakeupHint] = useState(false);
+  const wakeupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { theme, toggleTheme } = useTheme();
+
+  const clearWakeupTimer = () => {
+    if (wakeupTimerRef.current) {
+      clearTimeout(wakeupTimerRef.current);
+      wakeupTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearWakeupTimer, []);
 
   const performLogin = async (
     candidateEmail: string,
@@ -31,6 +44,11 @@ const Login = () => {
   ) => {
     setLoading(true);
     setError("");
+    setShowWakeupHint(false);
+    clearWakeupTimer();
+    wakeupTimerRef.current = setTimeout(() => {
+      setShowWakeupHint(true);
+    }, WAKEUP_HINT_DELAY_MS);
 
     try {
       const response = await api.post("/auth/login", {
@@ -46,13 +64,19 @@ const Login = () => {
         setError("Too many login attempts. Please wait a moment.");
       } else if (status === 401) {
         setError("Invalid email or password.");
+      } else if (!status) {
+        setError(
+          "Couldn't reach the backend. It may still be waking up — give it ~60 seconds and try again.",
+        );
       } else {
         setError(
           err?.response?.data?.message || "Something went wrong. Try again.",
         );
       }
     } finally {
+      clearWakeupTimer();
       setLoading(false);
+      setShowWakeupHint(false);
     }
   };
 
@@ -166,9 +190,64 @@ const Login = () => {
               color: "#ffffff",
             }}
           >
-            {loading ? "Authenticating..." : "Sign In"}
+            {loading
+              ? showWakeupHint
+                ? "Waking the backend..."
+                : "Authenticating..."
+              : "Sign In"}
           </button>
+
+          {loading && showWakeupHint && (
+            <div
+              className="rounded-xl border px-3 py-2.5 text-xs font-medium flex items-start gap-2"
+              style={{
+                borderColor:
+                  theme === "dark"
+                    ? "rgba(250, 204, 21, 0.55)"
+                    : "rgba(202, 138, 4, 0.55)",
+                backgroundColor:
+                  theme === "dark"
+                    ? "rgba(250, 204, 21, 0.08)"
+                    : "rgba(202, 138, 4, 0.08)",
+                color: theme === "dark" ? "#facc15" : "#854d0e",
+              }}
+            >
+              <span aria-hidden="true">⏳</span>
+              <span>
+                The backend is on Render's free tier — first request can take
+                up to <strong>60 seconds</strong> to wake from sleep. Hang on,
+                we'll get you in.
+              </span>
+            </div>
+          )}
         </form>
+
+        <div
+          className="mt-5 flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[11px]"
+          style={{
+            borderColor:
+              theme === "dark"
+                ? "rgba(255, 255, 255, 0.18)"
+                : "rgba(0, 0, 0, 0.12)",
+            backgroundColor:
+              theme === "dark"
+                ? "rgba(255, 255, 255, 0.04)"
+                : "rgba(0, 0, 0, 0.03)",
+            color: theme === "dark" ? "#cbd5e1" : "#475569",
+          }}
+          role="note"
+        >
+          <Info
+            className="h-3.5 w-3.5 shrink-0 mt-0.5"
+            aria-hidden="true"
+          />
+          <span>
+            Free-tier hosting heads-up: if the backend has been idle, the
+            first sign-in may take up to <strong>~60 seconds</strong> while
+            Render wakes the service. Subsequent requests are instant.
+          </span>
+        </div>
+
       </div>
 
       <button

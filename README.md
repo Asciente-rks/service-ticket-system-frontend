@@ -1,21 +1,18 @@
-# Service Ticket System
+# Service Ticket System — Frontend
 
-> Internal IT/QA ticketing platform with a built-in approval workflow — testers report defects, developers fix them, admins triage, and approvers sign them off before tickets close.
+> Internal IT/QA ticketing SPA — testers report defects, developers fix them, admins triage, and approvers sign off before tickets close. Built on React 19 + Vite 8 + Tailwind 4, deployed on Vercel at no cost.
 
-A four-role ticket workflow (`SUPER_ADMIN`, `ADMIN`, `TESTER`, `DEVELOPER`) with six lifecycle statuses, per-ticket approval/rejection, granular per-user notification settings, and node-cron-driven SLA housekeeping. Backend is Express + Sequelize + MySQL; frontend is React 19 + Vite + Tailwind 4. Deployed on free tiers — Vercel for the SPA, host-agnostic Node service for the API.
-
-The system spans **two repositories**:
-
-| Repository | What it is | Stack |
-|---|---|---|
-| [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system) | REST API backend | Express 4 + Sequelize + MySQL + node-cron |
-| [`service-ticket-system-frontend`](https://github.com/Asciente-rks/service-ticket-system-frontend) | Web client (SPA) | React 19 + Vite + Tailwind 4 |
+This repository is the **web client** half of the Service Ticket System. It is a single-page application that drives a four-role ticket workflow (`SUPER_ADMIN`, `ADMIN`, `TESTER`, `DEVELOPER`) with six lifecycle statuses, per-ticket approval/rejection, granular per-user notification settings, and role-scoped views. The companion REST API lives in [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system).
 
 ---
 
 ## Live Demo
 
-- **🌐 Live app:** [service-ticket-system-frontend.vercel.app](https://service-ticket-system-frontend.vercel.app)
+- **Live app:** https://service-ticket-system-frontend.vercel.app/login
+- **Backend:** Render Web Service (`service-ticket-system-backend.onrender.com`)
+- **Try the Dev Tools panel:** click the floating wrench button on the login page for one-click sign-in as Admin, Developer, or Tester.
+
+> The Render backend may take 10–15 seconds to wake on the first request (free-tier cold start). Subsequent requests are warm.
 
 ---
 
@@ -23,514 +20,403 @@ The system spans **two repositories**:
 
 1. [What It Does](#what-it-does)
 2. [Architecture](#architecture)
-3. [Tech Stack](#tech-stack)
-4. [Database Design](#database-design)
-5. [Repository Layout](#repository-layout)
-6. [API Reference](#api-reference)
-7. [Authentication & Credentials](#authentication--credentials)
-8. [Deployment](#deployment)
-9. [Cost Breakdown](#cost-breakdown)
-10. [Local Development](#local-development)
-11. [Author](#author)
+3. [Routing Map](#routing-map)
+4. [Component Tree](#component-tree)
+5. [State & Auth](#state--auth)
+6. [API Client](#api-client)
+7. [Role Hierarchy](#role-hierarchy)
+8. [Ticket Lifecycle](#ticket-lifecycle)
+9. [Tech Stack](#tech-stack)
+10. [Repository Layout](#repository-layout)
+11. [Deployment & Environment Variables](#deployment--environment-variables)
+12. [Cost Breakdown](#cost-breakdown)
+13. [Local Development](#local-development)
+14. [Repos](#repos)
+15. [Author](#author)
 
 ---
 
 ## What It Does
 
-- **Report tickets** with title, description, priority, optional initial assignment.
-- **Assign and re-assign** tickets between developers and admins.
-- **Track six statuses** through the lifecycle: `OPEN → IN_PROGRESS → READY_FOR_QA → ERROR_PERSISTS / RESOLVED → CLOSED`.
-- **Approval workflow** — once a ticket is `READY_FOR_QA`, an approver issues `Approved` (with optional comment) to move it to `RESOLVED`, or `Rejected` to bounce it back.
-- **In-app notifications** with per-user read flag and granular toggles for which events fire.
-- **Profile + settings** pages let users update their account and notification preferences.
-- **Role-scoped UI** — admins see user management, testers see reported tickets, developers see assignments, super-admins see everything.
-- **Cron-driven housekeeping** — `node-cron` jobs run on the backend (`initCronJobs`) for SLA reminders / stale-ticket processing.
+- **Submit tickets** with title, description, priority (`LOW / MEDIUM / HIGH / CRITICAL`), and optional initial assignee.
+- **Six-status lifecycle** — `OPEN → IN_PROGRESS → READY_FOR_QA → RESOLVED / ERROR_PERSISTS → CLOSED` — with role-gated transitions enforced client-side and server-side.
+- **Approval workflow** — once a ticket reaches `READY_FOR_QA`, an approver issues `Approved` (with optional comment) to advance to `RESOLVED`, or `Rejected` to bounce back.
+- **Role-scoped views** — the same `Dashboard.tsx` surface adapts based on the decoded JWT: super-admins see all tickets and users, admins triage and assign, testers see only what they reported, developers see their assignments.
+- **In-app notifications** — real-time-style panel with per-message read state; per-user toggles for which events fire (`notify_assigned_ticket`, `notify_ticket_approved`, `notify_ticket_rejected`, `notify_reported_ticket_updated`).
+- **User management** — admins and higher can create / edit / delete users; role hierarchy is enforced (admins cannot see or alter other admins / superadmin).
+- **Dark / light theme** — `ThemeProvider` in `theme.tsx` injects CSS tokens; toggled from the settings panel.
+- **Bundle hardening** — production builds disable source maps, use content-hash filenames, replace `console.*` with no-ops, and disable the React DevTools global hook via `src/utils/security.ts`.
+- **Dev Tools quick-login** — floating panel on `/login` prefills and submits the real `/auth/login` endpoint as Admin, Developer, or Tester — no typing required for portfolio reviewers.
 
 ---
 
 ## Architecture
 
-```
-┌─────────────────────────────┐
-│ Browser (React 19 + Vite)   │
-│  • Vercel-hosted SPA        │
-│  • react-router 7           │
-│  • Tailwind 4               │
-│  • jwt-decode for client    │
-│    role parsing             │
-└───────────┬─────────────────┘
-            │ REST + JWT (Bearer)
-            │ axios
-            │
-            ▼
-┌─────────────────────────────┐
-│ Express 4 API               │
-│  • helmet + CORS            │
-│  • express.json             │
-│  • route mounts:            │
-│    /auth /users /tickets    │
-│    /notifications           │
-│  • /health liveness         │
-└───────────┬─────────────────┘
-            │ Sequelize 6 ORM
-            │
-            ▼
-       ┌──────────────┐         ┌──────────────────────┐
-       │ MySQL        │  ◄────  │ node-cron            │
-       │  (free-tier  │         │  • SLA reminders     │
-       │   hosted)    │         │  • stale-ticket scan │
-       │              │         │  (initCronJobs)      │
-       └──────────────┘         └──────────────────────┘
+```mermaid
+flowchart TB
+    Browser["Browser SPA\nReact 19 · Vite 8 · Tailwind 4\nreact-router-dom 7 · jwt-decode"]
+    Vercel["Vercel Hobby\nGlobal CDN · free SSL\nauto-deploy on push"]
+    Express["Express 4 REST API\nservice-ticket-system\nhelmet · CORS · Sequelize 6"]
+    MySQL[("MySQL\nfree-tier hosted\nAiven · FreeSQLDatabase")]
+    Cron["node-cron\nSLA reminders\nstale-ticket scan"]
+
+    Browser -->|"REST + JWT (Bearer)\naxios + interceptor"| Express
+    Browser -.deployed on.-> Vercel
+    Express --> MySQL
+    Express -.in-process.-> Cron
+    Cron --> MySQL
+
+    classDef edge fill:#0f1422,stroke:#5eead4,color:#e2e8f0
+    classDef store fill:#0a0e1a,stroke:#5eead4,color:#5eead4
+    classDef host fill:#0a1420,stroke:#38bdf8,color:#bae6fd
+    class Browser,Express,Cron edge
+    class MySQL store
+    class Vercel host
 ```
 
-**Notable architectural choices:**
+### Notable architectural choices
 
-- **Single Express process** — no queue, no worker. `helmet`, `cors`, `express.json`, route mounts, `/health` probe. On startup: `connectDB()` → `defineAssociations()` → `initCronJobs()` → listen.
-- **Cron co-located with the API** — saves an additional service. node-cron fires inside the same Node process; the trade-off is that scaling horizontally requires either a leader-election strategy or moving cron to a dedicated worker.
-- **Modular DDD-ish layout** — each domain (tickets, users, notifications) has its own `controllers/services/repositories/dtos/models/routes`. New domains drop in with a familiar shape.
-- **Snake_case DB columns** mapped to camelCase model attributes via Sequelize `field` — clean SQL audit trail, idiomatic JS code.
+- **Axios instance with a request interceptor** (`src/services/api.ts`) — a single `axios.create({ baseURL: VITE_API_URL })` instance auto-injects the JWT from `localStorage` on every outbound request. No per-call auth plumbing anywhere in the codebase.
+- **`jwt-decode` for client-side role awareness** — the raw JWT is decoded in `src/utils/auth.ts` to extract the role string. No second network round-trip needed to decide which nav items and actions to render.
+- **`ThemeProvider`** wraps the entire tree in `App.tsx` before the router, so every component can read the theme context without prop drilling.
+- **Modal-centric UX** — heavy lifting happens in `CreateTicketModal`, `EditTicketModal`, `TicketDetailModal`, and `ApprovalModal` rather than in separate routes. The `Dashboard` page renders the list and portals the active modal.
+- **`ProtectedRoute`** — thin wrapper that reads the decoded token from localStorage; if absent or expired, redirects to `/login`. No server round-trip on navigation.
+- **`vercel.json` proxy + SPA fallback** — `/api/*` is reverse-proxied to the Render backend URL at the CDN edge (eliminates CORS on cross-origin XHR during production). All other paths fall back to `/index.html` for client-side routing.
+
+---
+
+## Routing Map
+
+```mermaid
+flowchart LR
+    Root["/"] -->|Navigate| Login["/login\nLogin.tsx"]
+
+    Login -->|"JWT issued\n(any role)"| Dashboard["/dashboard\nDashboard.tsx"]
+    Login -->|"JWT issued\n(any role)"| Users["/users\nUserManagement.tsx"]
+    Login -->|"JWT issued\n(any role)"| Notifs["/notifications\nNotificationsPage.tsx"]
+    Login -->|"JWT issued\n(any role)"| Profile["/profile\nProfilePage.tsx"]
+    Login -->|"JWT issued\n(any role)"| Settings["/settings\nSettings.tsx"]
+
+    Dashboard --> PR1["ProtectedRoute\nguard"]
+    Users --> PR2["ProtectedRoute\nguard"]
+    Notifs --> PR3["ProtectedRoute\nguard"]
+    Profile --> PR4["ProtectedRoute\nguard"]
+    Settings --> PR5["ProtectedRoute\nguard"]
+
+    PR1 & PR2 & PR3 & PR4 & PR5 --> Layout["Layout.tsx\ntop bar + side nav"]
+
+    classDef page fill:#0f1422,stroke:#5eead4,color:#e2e8f0
+    classDef guard fill:#1a1222,stroke:#a978ff,color:#e2c8ff
+    classDef shell fill:#0a1420,stroke:#38bdf8,color:#bae6fd
+    class Login,Dashboard,Users,Notifs,Profile,Settings page
+    class PR1,PR2,PR3,PR4,PR5 guard
+    class Layout,Root shell
+```
+
+All protected routes are wrapped in `<ThemeProvider><Router>` at the top level (`App.tsx`). `ProtectedRoute` checks for a valid JWT in localStorage synchronously; missing or expired tokens redirect to `/login` before the target component mounts.
+
+---
+
+## Component Tree
+
+```mermaid
+flowchart TB
+    App["App.tsx\nThemeProvider · BrowserRouter · Routes"]
+
+    App --> LoginPage["Login.tsx\nform + Dev Tools panel"]
+    App --> LayoutShell["Layout.tsx\ntop bar + sidebar nav"]
+
+    LayoutShell --> DashPage["Dashboard.tsx\n~25 KB · lists + filters"]
+    LayoutShell --> UsersPage["UserManagement.tsx"]
+    LayoutShell --> NotifsPage["NotificationsPage.tsx"]
+    LayoutShell --> ProfilePage["ProfilePage.tsx"]
+    LayoutShell --> SettingsComp["Settings.tsx"]
+
+    DashPage --> CTModal["CreateTicketModal.tsx\n~16 KB"]
+    DashPage --> ETModal["EditTicketModal.tsx\n~16 KB"]
+    DashPage --> TDModal["TicketDetailModal.tsx"]
+    DashPage --> AModal["ApprovalModal.tsx"]
+
+    UsersPage --> CUModal["CreateUserModal.tsx"]
+    UsersPage --> EUModal["EditUserModal.tsx"]
+
+    classDef page fill:#0f1422,stroke:#5eead4,color:#e2e8f0
+    classDef modal fill:#1a1520,stroke:#f97316,color:#fed7aa
+    classDef shell fill:#0a1420,stroke:#38bdf8,color:#bae6fd
+    class LoginPage,DashPage,UsersPage,NotifsPage,ProfilePage,SettingsComp page
+    class CTModal,ETModal,TDModal,AModal,CUModal,EUModal modal
+    class App,LayoutShell shell
+```
+
+The `Dashboard.tsx` page is the most complex surface (~25 KB). It renders a filterable ticket list and conditionally portals one of four modals depending on the current user action. All modals receive a callback to refresh the list on save.
+
+---
+
+## State & Auth
+
+```mermaid
+flowchart LR
+    Login["POST /auth/login\n→ JWT"]
+    LS[("localStorage\n'token' key")]
+    Decode["jwt-decode\n→ { id, role, email }"]
+    Interceptor["axios interceptor\nAuthorization: Bearer ..."]
+    PR["ProtectedRoute\nchecks token presence"]
+    UI["Role-aware UI\nnav items · action buttons"]
+
+    Login -->|store| LS
+    LS -->|on app boot| Decode
+    Decode -->|drive| UI
+    LS -->|every request| Interceptor
+    LS -->|on route change| PR
+
+    classDef store fill:#0a0e1a,stroke:#5eead4,color:#5eead4
+    classDef action fill:#0f1422,stroke:#5eead4,color:#e2e8f0
+    class LS store
+    class Login,Decode,Interceptor,PR,UI action
+```
+
+There is no Redux or React Context for auth state. The JWT is stored in `localStorage` and read by:
+
+- `src/utils/auth.ts` — decodes the token and exposes role/id/email
+- `src/services/api.ts` — injects the token via axios interceptor
+- `src/components/ProtectedRoute.tsx` — guards every protected route
+- `Layout.tsx` — reads the role to show/hide nav items (e.g., User Management is admin+ only)
+
+Session ends by clearing `localStorage` and navigating to `/login`.
+
+---
+
+## API Client
+
+```mermaid
+flowchart TB
+    Config["axios.create\nbaseURL: VITE_API_URL"]
+    Interceptor["request interceptor\ninjects Bearer token\nfrom localStorage"]
+    Proxy["vercel.json\n/api/* → Render backend\n(CDN-edge proxy)"]
+
+    Endpoints["Consumers\nDashboard · UserManagement\nNotificationsPage · ProfilePage\nSettings · Login"]
+
+    Config --> Interceptor
+    Interceptor --> Proxy
+    Proxy -->|"production"| Backend["Express 4 API\nservice-ticket-system"]
+    Interceptor -->|"local dev"| Backend
+
+    Endpoints --> Config
+
+    classDef infra fill:#0a1420,stroke:#38bdf8,color:#bae6fd
+    classDef logic fill:#0f1422,stroke:#5eead4,color:#e2e8f0
+    classDef store fill:#0a0e1a,stroke:#5eead4,color:#5eead4
+    class Config,Interceptor,Proxy infra
+    class Endpoints,Backend logic
+```
+
+`src/services/api.ts` is a thin module — ~10 lines:
+
+```ts
+import axios from "axios";
+
+const api = axios.create({ baseURL: import.meta.env.VITE_API_URL });
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+export default api;
+```
+
+All pages import `api` and call the relevant path directly (e.g., `api.post("/auth/login", body)`). No generated client, no SDK.
+
+---
+
+## Role Hierarchy
+
+```mermaid
+flowchart LR
+    super["SUPER_ADMIN\nsees all users + tickets\ncross-org reach"]
+    admin["ADMIN\ncreate/edit/delete\nDevelopers + Testers\ntriage tickets"]
+    dev["DEVELOPER\nassigned tickets\nstatus updates"]
+    tester["TESTER\nreport defects\nview own tickets"]
+
+    super -->|"manage + see"| admin
+    admin -->|"create / update / delete"| dev
+    admin -->|"create / update / delete"| tester
+    dev -.ticket workflow.-> tester
+
+    classDef tier fill:#0f1422,stroke:#5eead4,color:#e2e8f0
+    class super,admin,dev,tester tier
+```
+
+| Role | Created by | Sees in User Management | Ticket access |
+|------|------------|------------------------|---------------|
+| `SUPER_ADMIN` | Seed script | Everyone | All tickets |
+| `ADMIN` | SuperAdmin or Admin | Developers + Testers only | All tickets — triage, assign, close |
+| `DEVELOPER` | Admin or SuperAdmin | Own profile only | Assigned tickets |
+| `TESTER` | Admin or SuperAdmin | Own profile only | Reported tickets |
+
+Role hierarchy is enforced backend-side (`permissions.middleware.ts`, `role.utils.ts`). The SPA reads the decoded role from the JWT to conditionally render nav items and action buttons — it never trusts the client alone.
+
+---
+
+## Ticket Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> OPEN : Tester creates ticket
+    OPEN --> IN_PROGRESS : Developer picks up
+    IN_PROGRESS --> READY_FOR_QA : Developer marks complete
+    READY_FOR_QA --> RESOLVED : Approver approves\n(Approval row created)
+    READY_FOR_QA --> ERROR_PERSISTS : Approver rejects\n(Approval row created)
+    ERROR_PERSISTS --> IN_PROGRESS : Developer iterates
+    RESOLVED --> CLOSED : Admin closes
+    CLOSED --> [*]
+```
+
+Approval rows are immutable audit records — multiple approvals over a ticket's lifetime are all preserved. The `comment` field on each `Approval` becomes part of the permanent audit trail visible in `TicketDetailModal`.
 
 ---
 
 ## Tech Stack
 
-### Backend (`service-ticket-system`)
-
 | Layer | Technology | Why |
 |-------|-----------|-----|
-| Runtime | Node.js + TypeScript 5 | Standard, widely deployable |
-| HTTP | Express 4 | Stable, familiar |
-| Security | `helmet` + `cors` | Sane defaults for headers + CORS |
-| ORM | Sequelize 6 | Models + associations + migrations in one |
-| Database | **MySQL** via `mysql2` | Free-tier providers abundant (Aiven, FreeSQLDatabase) |
-| Auth | JWT (`jsonwebtoken`) + **bcryptjs** | bcrypt's pure-JS sibling — no native build step |
-| Validation | Yup | Tiny, ergonomic |
-| Scheduled jobs | **node-cron** | In-process scheduler — saves a worker service |
-| Dev | nodemon (`ts-node` watch) | Auto-restart on save |
-| Bootstrap | `postinstall` runs `npm run build` | Render-friendly — no build step in start command |
-
-### Frontend (`service-ticket-system-frontend`)
-
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Framework | React 19 + TypeScript 5 | Latest, concurrent features |
-| Build | Vite 8 | Sub-second HMR |
-| Styling | **Tailwind CSS 4** + ThemeProvider | Latest engine, dark/light tokens |
-| Routing | react-router-dom 7 | Latest API |
-| HTTP | axios | Interceptors for JWT injection |
-| Auth | `jwt-decode` | Parse JWT client-side for role-aware UI |
-| Icons | `lucide-react` | Consistent, tree-shakable |
-| Lint | ESLint 9 + typescript-eslint | Modern config |
-| Hosting | **Vercel** | Hobby tier free, auto-deploys |
-
----
-
-## Database Design
-
-Seven Sequelize models. All primary keys are UUID v4. **DB columns are snake_case** (`reported_by`, `assigned_to`, `status_id`); model attributes are camelCase, mapped via Sequelize `field`.
-
-### `users`
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID (PK) | UUIDv4 |
-| `role_id` | UUID (FK → roles.id) | not null |
-| `name` | VARCHAR | display name |
-| `email` | VARCHAR | unique, login key |
-| `password` | VARCHAR | bcryptjs hash |
-| `created_at` / `updated_at` | DATETIME | timestamps |
-
-### `roles`
-
-Four roles seeded with **hardcoded UUIDs** in `src/config/roles.ts` (so seeders and code agree across environments).
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID (PK) | hardcoded per role |
-| `name` | VARCHAR | unique, one of `SUPER_ADMIN`, `ADMIN`, `TESTER`, `DEVELOPER` |
-
-### `tickets`
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID (PK) | |
-| `title` | VARCHAR | not null |
-| `description` | TEXT | |
-| `reported_by` | UUID (FK → users.id) | not null |
-| `assigned_to` | UUID (FK → users.id) | nullable |
-| `status_id` | UUID (FK → ticket_statuses.id) | not null |
-| `priority` | VARCHAR | free-form (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`) |
-
-### `ticket_statuses`
-
-Six statuses seeded with **hardcoded UUIDs** in `src/config/statuses.ts`.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID (PK) | hardcoded |
-| `name` | VARCHAR | unique, one of `OPEN`, `IN_PROGRESS`, `READY_FOR_QA`, `ERROR_PERSISTS`, `RESOLVED`, `CLOSED` |
-
-### `approvals`
-
-Per-decision audit row — multiple approvals over a ticket's lifetime are preserved.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID (PK) | |
-| `ticket_id` | UUID (FK → tickets.id) | not null |
-| `approver_id` | UUID (FK → users.id) | not null |
-| `status` | ENUM | `'Approved' \| 'Rejected'` |
-| `comment` | TEXT | optional, becomes part of audit trail |
-| `approved_at` | DATETIME | default NOW |
-
-### `notifications`
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID (PK) | |
-| `user_id` | UUID (FK → users.id) | not null, recipient |
-| `message` | VARCHAR | not null |
-| `read` | BOOLEAN | default false |
-| `ticket_id` | UUID (FK → tickets.id) | nullable, optional context |
-
-### `notification_settings`
-
-1:1 with users. Defaults all `true` — auto-created for new users.
-
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | UUID (PK) | |
-| `user_id` | UUID (FK → users.id) | not null |
-| `notify_assigned_ticket` | BOOLEAN | default true |
-| `notify_reported_ticket_updated` | BOOLEAN | default true |
-| `notify_ticket_approved` | BOOLEAN | default true |
-| `notify_ticket_rejected` | BOOLEAN | default true |
-
-**Notable design choices:**
-
-- **Hardcoded role + status UUIDs** in `src/config/{roles,statuses}.ts` — seeders and code agree across environments. No need to look up the role ID at runtime.
-  ```typescript
-  // roles.ts
-  SUPER_ADMIN: 'c3b538f5-8c72-48e2-b268-6a1359a62fe7'
-  ADMIN:       '0927eb32-25c8-4819-bddd-c8e9c6c1dfaf'
-  TESTER:      'bbf4184d-92c3-4a90-bbb2-de33c6c38a29'
-  DEVELOPER:   '668f4898-47ae-4da3-a1a5-fe8eb34a7f82'
-
-  // statuses.ts
-  OPEN, IN_PROGRESS, READY_FOR_QA,
-  ERROR_PERSISTS, RESOLVED, CLOSED
-  ```
-- **Two FKs from `tickets` to `users`** — one for the reporter (`reported_by`), one for the assignee (`assigned_to`), with named Sequelize aliases (`reporter` / `assignee`).
-- **Approvals are per-decision audit rows**, not a state column — multiple approvals over a ticket's lifetime preserved.
-- **bcryptjs instead of bcrypt** — no native build step, deploys cleanly on Render/Railway/Vercel serverless functions.
+| Framework | **React 19** + TypeScript 5 | Latest concurrent features, familiar ecosystem |
+| Build | **Vite 8** | Sub-second HMR, content-hash output |
+| Styling | **Tailwind CSS 4** + ThemeProvider | Latest engine, dark/light token system |
+| Routing | **react-router-dom 7** | Latest API, nested layouts |
+| HTTP | **axios** + request interceptor | JWT injection in one place; interceptors |
+| Auth | **jwt-decode 4** | Parse JWT client-side for role-aware UI |
+| Icons | **lucide-react** | Consistent, tree-shakable icon set |
+| Lint | ESLint 9 + typescript-eslint | Modern flat config |
+| Hosting | **Vercel Hobby** | Free CDN + SSL + auto-deploy + zero-config Vite detection |
 
 ---
 
 ## Repository Layout
 
-### Backend
-
-```
-service-ticket-system/
-├── package.json                      # build, db:sync, seed:roles/status/users, db:reset
-├── tsconfig.json
-└── src/
-    ├── server.ts                     # Express bootstrap + route mounts + cron init
-    ├── associations/
-    │   └── associations.ts           # All Sequelize relations in one place
-    ├── config/
-    │   ├── db.ts                     # Sequelize connection
-    │   ├── roles.ts                  # Hardcoded role UUIDs
-    │   └── statuses.ts               # Hardcoded ticket-status UUIDs
-    ├── middlewares/
-    │   ├── auth.middleware.ts        # JWT verification
-    │   ├── permissions.middleware.ts # Per-route permission gates
-    │   ├── role.utils.ts
-    │   └── validator.middleware.ts   # yup schema runner
-    ├── modules/
-    │   ├── tickets/                  # Modular: controllers, services,
-    │   │   │                         # repositories, dtos, models, routes, cron
-    │   │   ├── controllers/  …       # create, get, list, update, fetch-status,
-    │   │   │                         # approval
-    │   │   ├── services/     …       # ticket.service.ts (10KB), approval.service.ts
-    │   │   ├── repositories/  …
-    │   │   ├── dtos/  …
-    │   │   ├── models/   …           # ticket, ticket-status, approval
-    │   │   ├── routes/   …
-    │   │   └── cron/ticket.cron.ts   # SLA / stale-ticket housekeeping
-    │   ├── users/                    # Same modular pattern for users + auth
-    │   │   ├── controllers/   …      # auth (login), CRUD, role fetching,
-    │   │   │                         # notification settings
-    │   │   ├── services/   …         # auth.service, user.service,
-    │   │   │                         # notification-setting.service
-    │   │   ├── repositories/  …
-    │   │   ├── dtos/  …
-    │   │   ├── models/  …            # user, role, notification-settings
-    │   │   └── routes/  …            # auth.routes, user.routes,
-    │   │                             # notification-settings.routes
-    │   └── notifications/            # Listing + creation
-    │       ├── controllers/list-notifications.controller.ts
-    │       ├── services/notification.service.ts
-    │       ├── repositories/notification.repository.ts
-    │       ├── dtos/  …
-    │       ├── models/notification.model.ts
-    │       └── routes/notification.routes.ts
-    ├── scripts/
-    │   ├── sync-db.ts                # sequelize.sync() helper
-    │   ├── seed-roles.ts
-    │   ├── seed-ticket-status.ts
-    │   └── seed-users.ts
-    └── utils/
-        ├── notification.validation.ts
-        ├── ticket.validation.ts
-        └── user.validation.ts
-```
-
-### Frontend
-
 ```
 service-ticket-system-frontend/
-├── package.json                       # React 19, Vite 8, Tailwind 4
+├── package.json                    # React 19, Vite 8, Tailwind 4
 ├── eslint.config.js
-├── vite.config.ts
-├── vercel.json
-├── tsconfig*.json                    # split app/node configs
+├── vite.config.ts                  # disables source maps in prod, content-hash filenames
+├── vercel.json                     # /api/* proxy → Render backend; SPA fallback
+├── tsconfig*.json                  # split app/node configs
 ├── public/
 │   ├── favicon.svg
-│   └── icons.svg                     # SVG sprite sheet
+│   └── icons.svg                   # SVG sprite sheet
 ├── index.html
 └── src/
-    ├── App.tsx                       # Routes wrapped with ThemeProvider
+    ├── App.tsx                     # ThemeProvider · BrowserRouter · Routes · ProtectedRoute
     ├── main.tsx
-    ├── index.css                     # Tailwind + tokens
-    ├── theme.tsx                     # ThemeProvider (dark/light)
-    ├── assets/                       # Logo variants
+    ├── index.css                   # Tailwind directives + base tokens
+    ├── theme.tsx                   # ThemeProvider (dark/light context)
+    ├── assets/                     # Logo variants (dark, light, no-name)
     ├── components/
-    │   ├── Layout.tsx                # Top bar + side nav shell
-    │   ├── ProtectedRoute.tsx
-    │   ├── Settings.tsx              # In-app settings panel
-    │   ├── CreateTicketModal.tsx     # ~16KB
-    │   ├── EditTicketModal.tsx       # ~16KB
-    │   ├── TicketDetailModal.tsx
-    │   ├── ApprovalModal.tsx
+    │   ├── Layout.tsx              # Top bar + side nav shell (~15 KB)
+    │   ├── ProtectedRoute.tsx      # JWT presence guard → /login redirect
+    │   ├── Settings.tsx            # In-app settings panel
+    │   ├── CreateTicketModal.tsx   # ~16 KB — full form + validation
+    │   ├── EditTicketModal.tsx     # ~16 KB — status + assignee + priority
+    │   ├── TicketDetailModal.tsx   # Read view + approval history
+    │   ├── ApprovalModal.tsx       # Approve / Reject with comment
     │   ├── CreateUserModal.tsx
     │   └── EditUserModal.tsx
     ├── pages/
-    │   ├── Login.tsx
-    │   ├── Dashboard.tsx             # Big page, ~25KB — lists + filters + actions
-    │   ├── UserManagement.tsx
+    │   ├── Login.tsx               # Form + Dev Tools quick-login panel
+    │   ├── Dashboard.tsx           # ~25 KB — filterable list, modal portal
+    │   ├── UserManagement.tsx      # Admin+ CRUD
     │   ├── NotificationsPage.tsx
     │   └── ProfilePage.tsx
-    ├── services/api.ts               # axios instance + interceptors
-    ├── types/index.ts
+    ├── services/
+    │   └── api.ts                  # axios instance + JWT interceptor
+    ├── types/
+    │   └── index.ts                # Shared TypeScript types
     └── utils/
-        ├── auth.ts
-        └── labelStyles.tsx           # Status / priority pill styling
+        ├── auth.ts                 # jwt-decode wrapper → role/id/email
+        ├── labelStyles.tsx         # Status / priority pill Tailwind classes
+        └── security.ts             # Prod: no-op console.*, disable React DevTools hook
 ```
 
 ---
 
-## API Reference
+## Deployment & Environment Variables
 
-| Prefix | Auth | Surface |
-|---|---|---|
-| `GET /health` | none | `{ status: "UP", service, timestamp }` |
-| `/auth` | none for `/login` | `POST /login` → JWT |
-| `/users` | JWT | CRUD users, fetch role list, manage **own** notification-settings |
-| `/tickets` | JWT | Create / list / get / update tickets, **approval** sub-routes (`/tickets/:id/approve`, `/reject`), status fetching |
-| `/notifications` | JWT | List own notifications, mark read |
-
-The frontend's `src/services/api.ts` is a thin axios wrapper that injects the JWT and points at `VITE_API_URL`.
-
-### Ticket lifecycle (state machine)
-
-```
-[ OPEN ] ──(developer picks up)──► [ IN_PROGRESS ]
-                                         │
-                                         ▼
-                                  [ READY_FOR_QA ]
-                                         │
-                ┌────────(approve)───────┴────────(reject)─────┐
-                ▼                                              ▼
-          [ RESOLVED ]                                [ ERROR_PERSISTS ]
-                │                                              │
-                ▼                                              ▼
-            [ CLOSED ]                            ──(developer iterates)──┐
-                                                                          │
-                                                                          ▼
-                                                                  [ IN_PROGRESS ]
-```
-
-`Approval` rows are created on `READY_FOR_QA → RESOLVED` and `READY_FOR_QA → ERROR_PERSISTS` transitions. The `comment` field becomes part of the ticket's audit trail.
-
----
-
-## Authentication & Credentials
-
-### Seeded accounts
-
-`npm run seed:users` (or `npm run db:reset` which runs all seeders) seeds **four** accounts. All non-superadmin accounts share the password `Password123!` and are exposed via the login page's Dev Tools quick-login.
-
-| Email | Role | Password |
-|---|---|---|
-| `admin@test.com` | Admin | `Password123!` |
-| `developer@test.com` | Developer | `Password123!` |
-| `tester@test.com` | Tester | `Password123!` |
-
-> The seeded `superadmin@test.com` account exists in the database for owner-only operations. Its credentials are intentionally **not** published in the README or in the Dev Tools quick-login panel — only the project owner has them.
->
-> The seeder uses `User.upsert`, so re-running it resets the passwords on every seed — useful when you forget your local credentials.
-
-### Role hierarchy (enforced backend-side)
-
-`src/middlewares/permissions.middleware.ts` and `src/middlewares/role.utils.ts` enforce the hierarchy on every list/update/delete:
-
-- **SuperAdmin** — sees and manages everyone.
-- **Admin** — `getAllUsers` filters the response to only Developers and Testers, so admins never see other admins or the superadmin in the team list. `checkUserHierarchy` blocks admins from updating or deleting other admins / the superadmin.
-- **Developer / Tester** — can only interact with fellow developers/testers.
-
-### Dev Tools quick-login
-
-The login page ships with a floating **⚙ Dev Tools** button in the bottom-right corner. Click it to one-shot sign in as **Admin**, **Developer**, or **Tester** through the real `/auth/login` endpoint — handy for portfolio reviewers who don't want to type anything. The superadmin is intentionally absent from the panel; only the owner can sign in as superadmin.
-
-### Adding more users
-
-Sign in as an admin (or higher) and use the **User Management** page to create users. New users get default `notification_settings` (all `true`) auto-created on first request.
-
-### Self-registration
-
-This system has **no public signup** — accounts are created by admins/super-admins via the dashboard.
-
----
-
-## Hardening
-
-Because the live demo is reachable by anyone on the public internet, the API and frontend ship a few defenses:
-
-- **Per-IP rate limiting** — `src/middlewares/rate-limit.middleware.ts` keeps an in-memory bucket per client IP. `/auth/login` is capped at 5 attempts per 60-second window; everything else is capped at 120/min. Hitting the limit returns `429` with `Retry-After`, `X-RateLimit-Limit`, and `X-RateLimit-Remaining` headers.
-- **Hardened security headers** — `helmet()` is layered with a `securityHeaders` middleware that sets `Cross-Origin-Resource-Policy: cross-origin`, `Permissions-Policy`, `X-XSS-Protection: 0`, and a generic `Server: ServiceTicket` to mask the runtime fingerprint. CSP defaults from helmet apply.
-- **CORS allowlist** — driven by the `CORS_ORIGINS` env var (comma-separated). Defaults to local Vite dev origins. The allowlist rejects unlisted origins instead of echoing them back.
-- **Generic 500s** — the Express error handler and the login controller no longer leak `error.message` or stack traces; clients always see `{ message: "Internal server error" }` (or the equivalent module-specific message).
-- **Frontend bundle hardening** — `src/utils/security.ts` runs at boot in production builds:
-  - Replaces every `console.*` method with a no-op and clears the console every 1.5s, so opening DevTools shows nothing useful.
-  - Disables the React DevTools global hook so the React component tree isn't browsable.
-  - **Does NOT block F12, right-click, or `Ctrl+Shift+I`** — the dev tools panel still opens, but the code inside is opaque (no source maps, hashed chunk filenames, minifier-mangled identifiers).
-- **Vite production build** — `vite.config.ts` disables source maps and rewrites entry / chunk / asset filenames as content hashes.
-
----
-
-## Deployment
-
-### Backend → host-agnostic Node service
-
-The backend is a stock Express + MySQL + Sequelize service. Recommended free-tier hosts:
-
-- **Render Web Service** (Node) — connect the repo, set environment variables, point at MySQL.
-- **Railway** — straightforward Node + MySQL combo.
-- **Fly.io** — also fine.
-
-The `postinstall` script runs `npm run build` so production deploys compile TypeScript automatically. Bootstrap the database once with `npm run db:reset` (sync schema + seed roles/statuses/users), then `npm start` serves the compiled app from `dist/server.js`.
-
-### Frontend → Vercel
+### Frontend — Vercel
 
 ```bash
-cd service-ticket-system-frontend
+# One-time setup in Vercel project settings:
+# VITE_API_URL = https://service-ticket-system-backend.onrender.com
+
 npm install
-npm run build      # → dist/
+npm run build    # → dist/
 ```
 
-Vercel auto-detects Vite. SPA fallback routing is configured in `vercel.json`. Set `VITE_API_URL` in Vercel's project settings.
+Vercel auto-detects Vite. The `vercel.json` handles two things:
 
-Live build: **[service-ticket-system-frontend.vercel.app](https://service-ticket-system-frontend.vercel.app)**.
+1. **`/api/*` proxy** — rewrites to the Render backend URL at the CDN edge, so axios calls `VITE_API_URL=/api` in production and avoids CORS.
+2. **SPA fallback** — all other paths rewrite to `/index.html` so client-side routes (e.g. `/dashboard`) survive a hard refresh.
+
+Assets under `/assets/*` are served with `Cache-Control: public, max-age=31536000, immutable` (one year) via content-hash filenames from Vite.
+
+### Environment variables
+
+| Variable | Where | Purpose |
+|----------|-------|---------|
+| `VITE_API_URL` | Vercel project settings | Base URL for the axios instance |
+
+For local development, create `.env.local`:
+
+```env
+VITE_API_URL=http://localhost:3000
+```
 
 ---
 
 ## Cost Breakdown
 
-> **Designed for $0/month forever** on free tiers across the entire stack.
+Designed for **$0/month forever** — the entire frontend stack runs on free tiers with no expiry.
 
 | Service | Free tier | We use | Headroom |
 |---------|-----------|--------|----------|
-| **Render Web Service** (or Railway / Fly) | 750 hours/mo, sleeps after 15 min | always-on under monitoring | within limits |
-| **MySQL** (Aiven / FreeSQLDatabase / Filess.io) | 5 GB / 1 GB depending on provider | <50 MB | **95%+** |
-| **Vercel Hobby** (frontend) | 100 GB bandwidth, unlimited deploys | <500 MB/mo | **99.5%** |
-| **GitHub Actions** (public repo) | unlimited minutes | n/a (Vercel auto-deploys) | unlimited |
-| **GitHub Releases** | unlimited public assets | n/a | unlimited |
+| Vercel Hobby (SPA) | 100 GB bandwidth, unlimited deploys | <500 MB/mo | 99.5% |
+| GitHub (public repo) | Unlimited | Storage only | Unlimited |
 
-**Total: $0/month.**
+**Monthly total: $0/month**
 
-**Why each free tier was chosen:**
-
-- **MySQL over PostgreSQL** — broader free-tier availability (Aiven, FreeSQLDatabase, Filess.io, etc.).
-- **bcryptjs over bcrypt** — pure JS, no native build step, deploys cleanly to Render free tier and serverless platforms.
-- **Vercel for the SPA** — global CDN + free SSL + automatic deploys + zero-config Vite detection.
-- **node-cron in-process** — saves an entire worker service; trade-off is that scaling horizontally requires leader election, but at portfolio scale a single Node process is plenty.
+**Why Vercel for this SPA:**
+- Zero-config Vite detection — `npm run build` output is deployed as-is.
+- Global CDN + free SSL with no configuration.
+- Automatic deploys on every push to `main`.
+- Edge-level `/api/*` reverse proxy eliminates CORS without a dedicated middleware layer.
 
 ---
 
 ## Local Development
 
-### Backend
-
-```bash
-git clone https://github.com/Asciente-rks/service-ticket-system.git
-cd service-ticket-system
-npm install                # postinstall runs npm run build
-
-# Start MySQL locally and create the database
-# Then bootstrap the schema + seed reference data
-npm run db:sync            # CREATE TABLEs via sequelize.sync()
-npm run seed:roles         # 4 role rows with the hardcoded UUIDs
-npm run seed:status        # 6 ticket-status rows with the hardcoded UUIDs
-npm run seed:users         # SuperAdmin account
-# Or do all four at once:
-npm run db:reset
-
-npm run dev                # nodemon → ts-node src/server.ts (port 3000)
-```
-
-### Frontend
-
 ```bash
 git clone https://github.com/Asciente-rks/service-ticket-system-frontend.git
 cd service-ticket-system-frontend
 npm install
-npm run dev                # Vite on :5173 with HMR
-npm run lint
-npm run build && npm run preview
+npm run dev           # Vite HMR at :5173
+npm run lint          # ESLint 9 + typescript-eslint
+npm run build         # production bundle → dist/
+npm run preview       # serve dist/ locally
 ```
 
-Set `VITE_API_URL=http://localhost:3000` in `.env.local` while pointing at the local backend.
+Point `VITE_API_URL` at the local backend (`http://localhost:3000`) while running the companion service. See [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system) for backend setup instructions.
 
-### Environment Variables
+---
 
-**Backend** (`.env`):
+## Repos
 
-```env
-NODE_ENV=development
-PORT=3000
-SERVICE_NAME=service-ticket-system
-
-# MySQL (Sequelize)
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=service_tickets
-DB_USER=root
-DB_PASSWORD=...
-
-# Auth
-JWT_SECRET=...
-JWT_EXPIRES_IN=7d
-```
-
-**Frontend** (`.env.local`):
-
-```env
-VITE_API_URL=http://localhost:3000   # or your deployed backend URL
-```
+| Repository | What it is | Stack |
+|------------|-----------|-------|
+| [`service-ticket-system-frontend`](https://github.com/Asciente-rks/service-ticket-system-frontend) | Web client (this repo) | React 19 + Vite 8 + Tailwind 4 |
+| [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system) | REST API backend | Express 4 + Sequelize + MySQL + node-cron |
 
 ---
 
 ## Author
 
-Built by **Ralph Kenneth F. Sonio** ([@Asciente-rks](https://github.com/Asciente-rks)). Live at **[service-ticket-system-frontend.vercel.app](https://service-ticket-system-frontend.vercel.app)**.
+**Ralph Kenneth Sonio** — [Portfolio](https://asciente-portfolio.vercel.app) · [GitHub](https://github.com/Asciente-rks)

@@ -89,7 +89,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const handleNotificationClick = async (n: NotificationItem) => {
     setIsNotificationsOpen(false);
     if (!n.read) markRead(n.id);
-    if (n.ticketId) navigate(`/dashboard?ticketId=${n.ticketId}`);
+    const ticketId = (n as any).ticketId ?? (n as any).ticket_id ?? (n as any).ticket?.id;
+    if (ticketId) navigate(`/dashboard?ticketId=${ticketId}`);
   };
 
   const menuItems = useMemo(() => {
@@ -153,7 +154,9 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex-1 flex flex-col">
         <header className="app-header h-16 border-b flex items-center justify-between px-6" style={{ borderColor: "var(--border)", backgroundColor: "var(--surface)" }}>
           <div className="flex items-center gap-3">
-            <img src={theme === "dark" ? LogoNoNameDark : Logo} alt="Logo" className="h-9 w-auto object-contain" />
+            <span className="brand-logo brand-logo--header">
+              <img src={theme === "dark" ? LogoNoNameDark : Logo} alt="NexusTrack" />
+            </span>
           </div>
 
           <div className="flex items-center gap-2">

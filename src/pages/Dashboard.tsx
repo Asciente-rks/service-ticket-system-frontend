@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [filterType, setFilterType] = useState<"all" | "assigned" | "reported" | "closed">("all");
   const [prioritySort, setPrioritySort] = useState<string>("All");
   const [statusSort, setStatusSort] = useState<string>("All");
+  const [approvalSort, setApprovalSort] = useState<"All" | "Approved" | "Pending" | "Rejected">("All");
   const [dateSort, setDateSort] = useState<"newest" | "oldest">("newest");
 
   const currentUser = getLoggedInUser();
@@ -76,17 +77,41 @@ const Dashboard = () => {
     }
   };
 
+  // Open a ticket when arriving via ?ticketId=... (e.g. clicking a notification).
+  // Tries the already-loaded list first, then falls back to fetching the single
+  // ticket so it works even if the ticket isn't in the current list yet.
   useEffect(() => {
     const ticketId = searchParams.get("ticketId");
-    if (ticketId && tickets.length > 0) {
-      const ticket = tickets.find((t) => String(t.id) === ticketId);
-      if (ticket) {
-        setSelectedTicket(ticket);
-        const newParams = new URLSearchParams(searchParams);
-        newParams.delete("ticketId");
-        setSearchParams(newParams, { replace: true });
-      }
+    if (!ticketId) return;
+
+    const clearParam = () => {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("ticketId");
+      setSearchParams(newParams, { replace: true });
+    };
+
+    const fromList = tickets.find((t) => String(t.id) === String(ticketId));
+    if (fromList) {
+      setSelectedTicket(fromList);
+      clearParam();
+      return;
     }
+
+    let active = true;
+    api
+      .get(`/tickets/${ticketId}`)
+      .then((res) => {
+        if (active && res.data) {
+          setSelectedTicket(res.data);
+          clearParam();
+        }
+      })
+      .catch(() => {
+        if (active) clearParam();
+      });
+    return () => {
+      active = false;
+    };
   }, [tickets, searchParams, setSearchParams]);
 
   const getStatusName = (t: any): string => {
@@ -126,6 +151,18 @@ const Dashboard = () => {
     }
   };
 
+  // Approval badge: green = Approved, rose = Rejected, gray = not yet reviewed.
+  const getApprovalMeta = (t: any) => {
+    const s = t.approvalStatus || t.approval_status || null;
+    if (s === "Approved") return { label: "Approved", cls: "text-emerald-600 bg-emerald-500/10 border border-emerald-500/30" };
+    if (s === "Rejected") return { label: "Rejected", cls: "text-rose-600 bg-rose-500/10 border border-rose-500/30" };
+    return { label: "Not yet approved", cls: "text-[var(--muted)] bg-[var(--accent-soft)] border border-[var(--border)]" };
+  };
+  const approvalStateOf = (t: any): "Approved" | "Rejected" | "Pending" => {
+    const s = t.approvalStatus || t.approval_status || null;
+    return s === "Approved" ? "Approved" : s === "Rejected" ? "Rejected" : "Pending";
+  };
+
   const adminRoleId = roles.find((r) => ["admin", "administrator"].includes(r.name.toLowerCase()))?.id;
   const superAdminRoleId = roles.find((r) => ["superadmin", "super admin", "super-admin", "root"].includes(r.name.toLowerCase()))?.id;
   const isAdmin = !!(
@@ -147,6 +184,7 @@ const Dashboard = () => {
     if (filterType === "closed" && statusName !== "Closed" && statusName !== "Resolved") return false;
     if (prioritySort !== "All" && ticket.priority !== prioritySort) return false;
     if (statusSort !== "All" && statusName !== statusSort) return false;
+    if (approvalSort !== "All" && approvalStateOf(ticket) !== approvalSort) return false;
     return true;
   });
 
@@ -229,6 +267,12 @@ const Dashboard = () => {
             <option value="All">All statuses</option>
             {statuses.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
           </select>
+          <select value={approvalSort} onChange={(e) => setApprovalSort(e.target.value as any)} className="app-select rounded-xl px-3 py-2 text-xs font-medium">
+            <option value="All">All approvals</option>
+            <option value="Approved">Approved</option>
+            <option value="Pending">Not yet approved</option>
+            <option value="Rejected">Rejected</option>
+          </select>
           <select value={dateSort} onChange={(e) => setDateSort(e.target.value as any)} className="app-select rounded-xl px-3 py-2 text-xs font-medium">
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
@@ -261,11 +305,16 @@ const Dashboard = () => {
                 className="group p-5 rounded-2xl border transition-all flex flex-col cursor-pointer hover:-translate-y-0.5 hover:shadow-lg"
                 style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
               >
-                <div className="flex justify-between items-center mb-3">
-                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide ${getPriorityStyle(ticket.priority)}`}>
-                    {ticket.priority}
-                  </span>
-                  <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+                <div className="flex justify-between items-center mb-3 gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide ${getPriorityStyle(ticket.priority)}`}>
+                      {ticket.priority}
+                    </span>
+                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap ${getApprovalMeta(ticket).cls}`}>
+                      {getApprovalMeta(ticket).label}
+                    </span>
+                  </div>
+                  <span className="text-[11px] shrink-0" style={{ color: "var(--muted)" }}>
                     {ticket.created_at || ticket.createdAt ? new Date(ticket.created_at || ticket.createdAt).toLocaleDateString() : ""}
                   </span>
                 </div>
@@ -278,20 +327,20 @@ const Dashboard = () => {
                     {statusMeta.icon}{statusName}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px]" style={{ color: "var(--muted)" }}>{assigneeName}</span>
+                    <span className="text-[11px] truncate max-w-[90px]" style={{ color: "var(--muted)" }}>{assigneeName}</span>
                     {isAdmin && (
                       <>
                         <button
                           onClick={(e) => { e.stopPropagation(); requestDelete(ticket.id); }}
                           title="Delete ticket"
-                          className="p-1.5 rounded-lg transition hover:bg-red-500/10 hover:-translate-y-0.5"
+                          className="grid place-items-center h-7 w-7 rounded-lg transition hover:bg-red-500/10"
                           style={{ color: "#ef4444" }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); setApprovingTicketId(ticket.id); }}
-                          className="text-[11px] font-semibold px-3 py-1.5 rounded-lg transition"
+                          className="inline-flex items-center h-7 px-3 rounded-lg text-[11px] font-semibold transition hover:-translate-y-0.5"
                           style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
                         >
                           Review

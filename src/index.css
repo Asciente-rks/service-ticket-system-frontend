@@ -4,58 +4,66 @@
 }
 @import "tailwindcss";
 
+/* Brand palette derived from the NexusTrack logo (cyan/teal #0090b4 + navy).
+   Dark surfaces are tuned to the dark logo's navy background so the logo blends. */
 :root {
   color-scheme: dark;
-  --bg: #050608;
-  --text: #f4f6fb;
-  --surface: #0d1016;
-  --card: #11151d;
-  --border: rgba(255, 255, 255, 0.12);
-  --input: #11151d;
-  --input-text: #f4f6fb;
-  --button-bg: #6366f1;
+  --bg: #0a1120;
+  --text: #eaf2f8;
+  --surface: #111b2e;
+  --card: #152138;
+  --border: rgba(255, 255, 255, 0.10);
+  --input: #152138;
+  --input-text: #eaf2f8;
+  --button-bg: #1099bd;
   --button-text: #ffffff;
-  --muted: #9aa3b2;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-soft: rgba(99, 102, 241, 0.14);
-  --ring: rgba(99, 102, 241, 0.45);
+  --muted: #8fa3b8;
+  --accent: #1099bd;
+  --accent-hover: #15aacf;
+  --accent-soft: rgba(34, 184, 212, 0.16);
+  --ring: rgba(34, 184, 212, 0.45);
+  --brand-from: #0e7d9b;
+  --brand-to: #1fc3d6;
 }
 
 html.theme-light {
   color-scheme: light;
-  --bg: #f4f6fb;
-  --text: #0f172a;
+  --bg: #eef4f8;
+  --text: #0d1f29;
   --surface: #ffffff;
   --card: #ffffff;
-  --border: rgba(15, 23, 42, 0.12);
+  --border: rgba(13, 31, 41, 0.12);
   --input: #ffffff;
-  --input-text: #0f172a;
-  --button-bg: #4f46e5;
+  --input-text: #0d1f29;
+  --button-bg: #0c7a98;
   --button-text: #ffffff;
-  --muted: #64748b;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-soft: rgba(79, 70, 229, 0.10);
-  --ring: rgba(79, 70, 229, 0.35);
+  --muted: #5b7080;
+  --accent: #0c7a98;
+  --accent-hover: #0a6781;
+  --accent-soft: rgba(8, 145, 178, 0.10);
+  --ring: rgba(8, 145, 178, 0.32);
+  --brand-from: #0e7d9b;
+  --brand-to: #1fc3d6;
 }
 
 html.theme-dark {
   color-scheme: dark;
-  --bg: #050608;
-  --text: #f4f6fb;
-  --surface: #0d1016;
-  --card: #11151d;
-  --border: rgba(255, 255, 255, 0.12);
-  --input: #11151d;
-  --input-text: #f4f6fb;
-  --button-bg: #6366f1;
+  --bg: #0a1120;
+  --text: #eaf2f8;
+  --surface: #111b2e;
+  --card: #152138;
+  --border: rgba(255, 255, 255, 0.10);
+  --input: #152138;
+  --input-text: #eaf2f8;
+  --button-bg: #1099bd;
   --button-text: #ffffff;
-  --muted: #9aa3b2;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-soft: rgba(99, 102, 241, 0.16);
-  --ring: rgba(99, 102, 241, 0.45);
+  --muted: #8fa3b8;
+  --accent: #15a8cc;
+  --accent-hover: #2cc0e2;
+  --accent-soft: rgba(34, 184, 212, 0.16);
+  --ring: rgba(34, 184, 212, 0.45);
+  --brand-from: #0e7d9b;
+  --brand-to: #1fc3d6;
 }
 
 .accent-btn {
@@ -138,14 +146,13 @@ body {
 }
 
 .theme-dark .protected-shell {
-  --bg: #111318;
-  --surface: #171b20;
-  --border: rgba(255,255,255,0.08);
-  --input: #1c2026;
-  --input-text: #ffffff;
-  --button-bg: #171b20;
+  --bg: #0a1120;
+  --surface: #111b2e;
+  --border: rgba(255,255,255,0.09);
+  --input: #152138;
+  --input-text: #eaf2f8;
   --button-text: #ffffff;
-  --muted: #9a9a9a;
+  --muted: #8fa3b8;
 }
 
 .app-input {
@@ -472,4 +479,31 @@ html.theme-dark {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* =========================================================================
+   Brand logo crop. The NexusTrack PNGs are square (2048x2048) with the
+   wordmark centered in a ~418px-tall band, so plain <img> renders tiny. These
+   wrappers crop the surrounding padding by scaling the centered image inside a
+   fixed, overflow-hidden box (content fraction ≈ 418/2048 → scale ×4.9).
+   ========================================================================= */
+.brand-logo {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.brand-logo img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  max-width: none;
+}
+.brand-logo--header { height: 34px; width: 138px; }
+.brand-logo--header img { height: 167px; }
+.brand-logo--mobile { height: 30px; width: 122px; }
+.brand-logo--mobile img { height: 147px; }
+.brand-logo--hero { height: 88px; width: 354px; max-width: 100%; }
+.brand-logo--hero img { height: 431px; }
 

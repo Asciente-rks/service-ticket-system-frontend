@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Video, ChevronDown } from "lucide-react";
 import api from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import type { Ticket, TicketStatus, User, Role } from "../types";
 import { getLoggedInUser } from "../utils/auth";
 import { getStatusMeta } from "../utils/labelStyles";
@@ -42,17 +43,27 @@ const EditTicketModal = ({
   useEffect(() => {
     if (isOpen && ticket) {
       setError("");
+      // The ticket from the API exposes `status` as a NAME (e.g. "Open"), not an
+      // id. Resolve the current statusId by matching that name against the
+      // statuses list so the dropdown shows the real status and we never submit
+      // a null statusId (which previously caused "Input validation failed").
+      const statusName =
+        typeof (ticket as any).status === "string"
+          ? (ticket as any).status
+          : (ticket as any).status?.name;
+      const resolvedStatusId =
+        (ticket as any).statusId ||
+        (ticket as any).status_id ||
+        (ticket as any).status?.id ||
+        (statusName ? statuses.find((s) => s.name === statusName)?.id : "") ||
+        "";
+
       setFormData({
         title: ticket.title || "",
         description: ticket.description || "",
         jamUrl: (ticket as any).jamUrl || "",
         priority: (ticket.priority as any) || "Medium",
-        statusId: String(
-          (ticket as any).statusId ||
-            (ticket as any).status_id ||
-            (ticket as any).status?.id ||
-            "",
-        ),
+        statusId: String(resolvedStatusId),
         assigneeId: String(
           (ticket as any).assigneeId ||
             (ticket as any).assignedTo ||
@@ -62,7 +73,7 @@ const EditTicketModal = ({
         ),
       });
     }
-  }, [isOpen, ticket]);
+  }, [isOpen, ticket, statuses]);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -197,24 +208,30 @@ const EditTicketModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (canEditCoreDetails && !formData.title.trim()) { setError("Title is required."); return; }
+    if (canEditCoreDetails && !formData.description.trim()) { setError("Description is required."); return; }
+
     setIsSubmitting(true);
 
     try {
-      const payload = {
+      // Only send statusId when we actually have one — never null (the API
+      // rejects a null statusId, which surfaced as a generic validation error).
+      const payload: Record<string, any> = {
         title: formData.title,
         description: formData.description,
         jamUrl: formData.jamUrl.trim() || null,
         priority: formData.priority,
-        statusId: formData.statusId || null,
         assigneeId: formData.assigneeId || null,
       };
+      if (formData.statusId) payload.statusId = formData.statusId;
 
       await api.patch(`/tickets/${ticket.id}`, payload);
       onSuccess();
       onClose();
     } catch (err: any) {
       console.error("UPDATE TICKET ERROR:", err.response?.data);
-      setError(err.response?.data?.message || "Failed to update ticket.");
+      setError(getApiErrorMessage(err, "Failed to update ticket."));
     } finally {
       setIsSubmitting(false);
     }

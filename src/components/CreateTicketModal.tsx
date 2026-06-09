@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Video, ChevronDown } from "lucide-react";
 import api from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import type { TicketStatus, User } from "../types";
 
 interface Props {
@@ -142,10 +143,10 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
     e.preventDefault();
     setError("");
 
-    if (!formData.statusId) {
-      setError("Please wait for statuses to load or select one.");
-      return;
-    }
+    if (!formData.title.trim()) { setError("Title is required."); return; }
+    if (!formData.description.trim()) { setError("Description is required."); return; }
+    if (!formData.statusId) { setError("Status is required — please pick one."); return; }
+    if (!formData.priority) { setError("Priority is required — please pick Low, Medium or High."); return; }
 
     setIsSubmitting(true);
     try {
@@ -163,7 +164,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
       onClose();
     } catch (err: any) {
       console.error("CREATE TICKET ERROR:", err.response?.data);
-      setError(err.response?.data?.message || "Failed to create ticket.");
+      setError(getApiErrorMessage(err, "Failed to create ticket."));
     } finally {
       setIsSubmitting(false);
     }

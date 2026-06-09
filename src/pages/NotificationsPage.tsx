@@ -40,7 +40,8 @@ const NotificationsPage = () => {
 
   const handleClick = async (n: NotificationItem) => {
     if (!n.read) await markRead(n.id);
-    if (n.ticketId) navigate(`/dashboard?ticketId=${n.ticketId}`);
+    const ticketId = (n as any).ticketId ?? (n as any).ticket_id ?? (n as any).ticket?.id;
+    if (ticketId) navigate(`/dashboard?ticketId=${ticketId}`);
   };
 
   return (

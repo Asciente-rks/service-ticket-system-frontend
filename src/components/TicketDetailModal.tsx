@@ -211,15 +211,19 @@ const TicketDetailModal = ({
                       Approval Status
                     </label>
                     <span
-                      className={`text-[10px] font-black uppercase ${
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
                         ticket.approvalStatus === "Approved"
-                          ? "text-emerald-400"
+                          ? "text-emerald-600 border-emerald-500/40 bg-emerald-500/10"
                           : ticket.approvalStatus === "Rejected"
-                          ? "text-rose-400"
-                          : "text-[var(--muted)]"
+                          ? "text-rose-600 border-rose-500/40 bg-rose-500/10"
+                          : "text-[var(--muted)] border-[var(--border)] bg-[var(--accent-soft)]"
                       }`}
                     >
-                      {ticket.approvalStatus || "Pending"}
+                      {ticket.approvalStatus === "Approved"
+                        ? "Approved"
+                        : ticket.approvalStatus === "Rejected"
+                        ? "Rejected"
+                        : "Not yet approved"}
                     </span>
                   </div>
 
@@ -253,29 +257,29 @@ const TicketDetailModal = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 pt-2">
               {canDelete ? (
-                <button onClick={onDelete} className="btn btn-danger px-5 py-3 text-sm font-bold uppercase tracking-widest">
+                <button onClick={onDelete} className="btn btn-danger h-12 px-5 text-sm font-bold uppercase tracking-widest">
                   <Trash2 className="h-4 w-4" /> Delete
                 </button>
               ) : (
                 <span />
               )}
-              <div className="flex flex-wrap items-center gap-3">
-              <button onClick={onEdit} className="btn btn-ghost px-8 py-3 text-sm font-bold uppercase tracking-widest">
-                Edit Ticket
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onApprove?.();
-                  }}
-                  className="btn btn-primary px-8 py-3 text-sm font-bold uppercase tracking-widest"
-                >
-                  Start Review
+              <div className="flex items-center gap-3">
+                <button onClick={onEdit} className="btn btn-ghost h-12 px-6 text-sm font-bold uppercase tracking-widest">
+                  Edit Ticket
                 </button>
-              )}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onApprove?.();
+                    }}
+                    className="btn btn-primary h-12 px-6 text-sm font-bold uppercase tracking-widest"
+                  >
+                    Start Review
+                  </button>
+                )}
               </div>
             </div>
           </div>

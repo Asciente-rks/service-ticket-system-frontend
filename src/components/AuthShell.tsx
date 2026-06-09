@@ -1,7 +1,7 @@
 import { Moon, Sun, ShieldCheck, Bell, GitBranch, Building2 } from "lucide-react";
 import { useTheme } from "../theme";
-import Logo from "../assets/Logo.png";
-import LogoNoNameDark from "../assets/LogoNoNameDark.png";
+import Logo from "../assets/NexusTrack_Logo_Light.png";
+import LogoNoNameDark from "../assets/NexusTrack_Logo_Dark.png";
 
 interface Props {
   title: string;

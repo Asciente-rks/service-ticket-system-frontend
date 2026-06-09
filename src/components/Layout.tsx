@@ -5,8 +5,8 @@ import { getLoggedInUser, logout } from "../utils/auth";
 import api from "../services/api";
 import type { User, Role, Organization, NotificationItem } from "../types";
 import { useTheme } from "../theme";
-import Logo from "../assets/Logo.png";
-import LogoNoNameDark from "../assets/LogoNoNameDark.png";
+import Logo from "../assets/NexusTrack_Logo_Light.png";
+import LogoNoNameDark from "../assets/NexusTrack_Logo_Dark.png";
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const { theme, toggleTheme } = useTheme();

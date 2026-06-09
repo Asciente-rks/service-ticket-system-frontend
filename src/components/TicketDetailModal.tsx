@@ -1,3 +1,4 @@
+import { Trash2 } from "lucide-react";
 import type { TicketStatus, User } from "../types";
 import { getPriorityBadgeClasses, getStatusMeta } from "../utils/labelStyles";
 
@@ -8,8 +9,10 @@ interface Props {
   statuses: TicketStatus[];
   users: User[];
   isAdmin?: boolean;
+  currentUserId?: string;
   onApprove?: () => void;
   onEdit?: () => void;
+  onDelete?: () => void;
 }
 
 const TicketDetailModal = ({
@@ -19,10 +22,18 @@ const TicketDetailModal = ({
   statuses,
   users,
   isAdmin,
+  currentUserId,
   onApprove,
   onEdit,
+  onDelete,
 }: Props) => {
   if (!isOpen) return null;
+
+  const reporterId = String(
+    ticket.reporter?.id || ticket.reportedBy || ticket.reported_by || "",
+  ).toLowerCase();
+  const isReporter = !!currentUserId && reporterId === String(currentUserId).toLowerCase();
+  const canDelete = !!onDelete && (isAdmin || isReporter);
 
   const getStatusName = (t: any): string => {
     if (typeof t.status === "string") return t.status;
@@ -220,7 +231,19 @@ const TicketDetailModal = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {canDelete ? (
+                <button
+                  onClick={onDelete}
+                  className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5"
+                  style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "transparent" }}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={onEdit}
                 className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-8 py-3 text-sm font-bold uppercase tracking-widest text-[var(--text)] transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
@@ -238,6 +261,7 @@ const TicketDetailModal = ({
                   Start Review
                 </button>
               )}
+              </div>
             </div>
           </div>
         </div>

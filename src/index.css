@@ -6,44 +6,92 @@
 
 :root {
   color-scheme: dark;
-  --bg: #010101;
-  --text: #ffffff;
-  --surface: #0a0a0a;
-  --card: #010101;
-  --border: #ffffff;
-  --input: #090909;
-  --input-text: #ffffff;
-  --button-bg: #000000;
+  --bg: #050608;
+  --text: #f4f6fb;
+  --surface: #0d1016;
+  --card: #11151d;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: #11151d;
+  --input-text: #f4f6fb;
+  --button-bg: #6366f1;
   --button-text: #ffffff;
-  --muted: #9a9a9a;
+  --muted: #9aa3b2;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.14);
+  --ring: rgba(99, 102, 241, 0.45);
 }
 
 html.theme-light {
   color-scheme: light;
-  --bg: #f7f7f7;
-  --text: #080808;
+  --bg: #f4f6fb;
+  --text: #0f172a;
   --surface: #ffffff;
   --card: #ffffff;
-  --border: #000000;
+  --border: rgba(15, 23, 42, 0.12);
   --input: #ffffff;
-  --input-text: #000000;
-  --button-bg: #ffffff;
-  --button-text: #000000;
-  --muted: #5b5b5b;
+  --input-text: #0f172a;
+  --button-bg: #4f46e5;
+  --button-text: #ffffff;
+  --muted: #64748b;
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: rgba(79, 70, 229, 0.10);
+  --ring: rgba(79, 70, 229, 0.35);
 }
 
 html.theme-dark {
   color-scheme: dark;
-  --bg: #010101;
-  --text: #ffffff;
-  --surface: #0a0a0a;
-  --card: #111827;
-  --border: #ffffff;
-  --input: #090909;
-  --input-text: #ffffff;
-  --button-bg: #000000;
+  --bg: #050608;
+  --text: #f4f6fb;
+  --surface: #0d1016;
+  --card: #11151d;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: #11151d;
+  --input-text: #f4f6fb;
+  --button-bg: #6366f1;
   --button-text: #ffffff;
-  --muted: #9a9a9a;
+  --muted: #9aa3b2;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-soft: rgba(99, 102, 241, 0.16);
+  --ring: rgba(99, 102, 241, 0.45);
+}
+
+.accent-btn {
+  background: var(--accent);
+  color: #ffffff;
+  border: 1px solid var(--accent);
+  transition: background-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.accent-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 30px var(--accent-soft);
+}
+.accent-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.auth-field {
+  background: var(--input);
+  color: var(--input-text);
+  border: 1px solid var(--border);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.auth-field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.auth-gradient {
+  background:
+    radial-gradient(900px circle at 0% 0%, var(--accent-soft), transparent 42%),
+    radial-gradient(900px circle at 100% 100%, var(--accent-soft), transparent 42%),
+    var(--bg);
 }
 
 html,

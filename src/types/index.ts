@@ -2,12 +2,24 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  roleId: string;
+  roleId: string | null;
+  organizationId?: string | null;
+  role?: string;
 }
 
 export interface Role {
   id: string;
   name: string;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  slug: string;
+  memberCount?: number;
+  inviteCode?: string;
+  isOwner?: boolean;
+  createdAt?: string;
 }
 
 export interface Ticket {
@@ -23,4 +35,12 @@ export interface Ticket {
 export interface TicketStatus {
   id: string;
   name: string;
+}
+
+export interface NotificationItem {
+  id: string;
+  message: string;
+  read: boolean;
+  ticketId?: string;
+  createdAt: string;
 }

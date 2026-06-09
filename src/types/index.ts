@@ -70,3 +70,23 @@ export interface TicketEvent {
   createdAt: string;
   actor?: { id: string; name: string } | null;
 }
+
+export interface Conversation {
+  id: string;
+  other: { id: string; name: string; email: string };
+  lastMessageText: string | null;
+  lastMessageAt: string | null;
+  lastMessageMine: boolean;
+  unreadCount: number;
+  createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+  sender: { id: string; name: string; email: string } | null;
+}

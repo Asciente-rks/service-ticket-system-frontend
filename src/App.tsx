@@ -12,6 +12,7 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import Onboarding from "./pages/Onboarding";
 import NotificationsPage from "./pages/NotificationsPage";
+import ConversationsPage from "./pages/ConversationsPage";
 import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Settings from "./components/Settings";
@@ -64,6 +65,17 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <NotificationsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/conversations"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ConversationsPage />
                 </Layout>
               </ProtectedRoute>
             }

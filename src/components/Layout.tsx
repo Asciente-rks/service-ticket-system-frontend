@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check } from "lucide-react";
+import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare } from "lucide-react";
 import { getLoggedInUser, logout } from "../utils/auth";
 import api from "../services/api";
 import type { User, Role, Organization, NotificationItem } from "../types";
@@ -18,6 +18,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
+  const [dmUnread, setDmUnread] = useState(0);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       }).catch(() => {});
     }
   }, []);
+
+  // Poll unread direct-message count for the sidebar badge.
+  useEffect(() => {
+    let active = true;
+    const tick = () => {
+      api.get("/conversations/unread-count")
+        .then((res) => { if (active) setDmUnread(Number(res.data?.count) || 0); })
+        .catch(() => {});
+    };
+    tick();
+    const id = setInterval(tick, 20000);
+    return () => { active = false; clearInterval(id); };
+  }, [location.pathname]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
@@ -94,10 +108,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   };
 
   const menuItems = useMemo(() => {
-    const items = [{ name: "Dashboard", path: "/dashboard", icon: Home }];
+    const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
+      { name: "Dashboard", path: "/dashboard", icon: Home },
+      { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
+    ];
     if (isAdmin) items.push({ name: "Team", path: "/users", icon: Users });
     return items;
-  }, [isAdmin]);
+  }, [isAdmin, dmUnread]);
 
   const roleName = roles.find((r) => String(r.id).toLowerCase() === String(user?.roleId).toLowerCase())?.name || "Member";
 
@@ -127,11 +144,21 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""} px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium`}
+                className={`relative flex items-center gap-3 ${isCollapsed ? "justify-center" : ""} px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium`}
                 style={isActive ? { backgroundColor: "var(--accent-soft)", color: "var(--accent)" } : { color: "var(--muted)" }}
               >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
-                {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+                <span className="relative shrink-0">
+                  <Icon className="h-[18px] w-[18px]" />
+                  {isCollapsed && !!item.badge && item.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 rounded-full ring-2" style={{ backgroundColor: "#ef4444", boxShadow: "0 0 0 2px var(--surface)" }} />
+                  )}
+                </span>
+                {!isCollapsed && <span className="whitespace-nowrap flex-1">{item.name}</span>}
+                {!isCollapsed && !!item.badge && item.badge > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: "#ef4444" }}>
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

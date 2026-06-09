@@ -26,6 +26,7 @@ export interface Ticket {
   id: string;
   title: string;
   description: string;
+  jamUrl?: string | null;
   statusId: string;
   priority: "Low" | "Medium" | "High";
   createdAt: string;

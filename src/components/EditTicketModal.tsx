@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Video, ChevronDown } from "lucide-react";
 import api from "../services/api";
 import type { Ticket, TicketStatus, User, Role } from "../types";
 import { getLoggedInUser } from "../utils/auth";
@@ -24,10 +25,12 @@ const EditTicketModal = ({
   roles,
 }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    jamUrl: "",
     priority: "Medium",
     statusId: "",
     assigneeId: "",
@@ -38,9 +41,11 @@ const EditTicketModal = ({
 
   useEffect(() => {
     if (isOpen && ticket) {
+      setError("");
       setFormData({
         title: ticket.title || "",
         description: ticket.description || "",
+        jamUrl: (ticket as any).jamUrl || "",
         priority: (ticket.priority as any) || "Medium",
         statusId: String(
           (ticket as any).statusId ||
@@ -191,12 +196,14 @@ const EditTicketModal = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     setIsSubmitting(true);
 
     try {
       const payload = {
         title: formData.title,
         description: formData.description,
+        jamUrl: formData.jamUrl.trim() || null,
         priority: formData.priority,
         statusId: formData.statusId || null,
         assigneeId: formData.assigneeId || null,
@@ -207,98 +214,104 @@ const EditTicketModal = ({
       onClose();
     } catch (err: any) {
       console.error("UPDATE TICKET ERROR:", err.response?.data);
-      alert(err.response?.data?.message || "Failed to update ticket.");
+      setError(err.response?.data?.message || "Failed to update ticket.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const labelCls = "block text-[10px] font-black uppercase tracking-[0.3em] mb-2";
+  const triggerStyle = {
+    backgroundColor: "var(--input)",
+    border: "1px solid var(--border)",
+    color: "var(--input-text)",
+  } as const;
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div
-        className="w-full max-w-4xl rounded-[2rem] border p-8 shadow-2xl"
-        style={{
-          backgroundColor: "var(--surface)",
-          borderColor: "var(--border)",
-          color: "var(--text)",
-        }}
-      >
+    <div className="modal-overlay" style={{ zIndex: 120 }}>
+      <div className="modal-panel max-w-4xl rounded-[2rem] p-8">
         <div className="mb-6 border-b border-[var(--border)] pb-4">
-          <h2 className="text-2xl font-black uppercase tracking-[0.25em]" style={{ color: "var(--text)" }}>
-            Edit Ticket
+          <h2 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+            Edit ticket
           </h2>
-          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
             Update ticket details and assignments.
           </p>
         </div>
+
+        {error && (
+          <div
+            className="mb-5 rounded-xl border px-4 py-3 text-sm animate-slide-down"
+            style={{ borderColor: "#f87171", backgroundColor: "rgba(248,113,113,0.1)", color: "#ef4444" }}
+          >
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
             <div className="space-y-5">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Title
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Title</label>
                 <input
                   required
                   disabled={!canEditCoreDetails}
-                  className="w-full rounded-3xl px-4 py-3 outline-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
+                  className="field px-4 py-3 outline-none"
                   value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Description
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Description</label>
                 <textarea
                   required
                   disabled={!canEditCoreDetails}
                   rows={4}
-                  className="w-full rounded-3xl px-4 py-3 outline-none resize-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
+                  className="field px-4 py-3 outline-none resize-y"
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
+              </div>
+
+              <div>
+                <label className={`${labelCls} flex items-center gap-1.5`} style={{ color: "var(--muted)" }}>
+                  <Video className="h-3.5 w-3.5" /> Jam recording URL
+                  <span className="font-medium tracking-normal lowercase opacity-70">· optional</span>
+                </label>
+                <div className="relative">
+                  <Video className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "var(--muted)" }} />
+                  <input
+                    type="url"
+                    disabled={!canEditCoreDetails}
+                    placeholder="https://jam.dev/c/your-recording"
+                    className="field pl-10 pr-4 py-3 outline-none"
+                    value={formData.jamUrl}
+                    onChange={(e) => setFormData({ ...formData, jamUrl: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-4" ref={dropdownGroupRef}>
               <div className="relative">
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Assign To
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Assign To</label>
                 <button
                   type="button"
                   onClick={() => setOpenDropdown((prev) => (prev === "assign" ? null : "assign"))}
-                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
+                  className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
+                  style={triggerStyle}
                 >
-                  {formData.assigneeId
-                    ? users.find((user) => String(user.id) === formData.assigneeId)?.name
-                    : "Select Assignee"}
+                  <span className="truncate">
+                    {formData.assigneeId
+                      ? users.find((user) => String(user.id) === formData.assigneeId)?.name
+                      : "Select Assignee"}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "assign" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
                 </button>
                 {openDropdown === "assign" && (
                   <div
-                    className="absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-3xl border shadow-2xl z-20"
+                    className="dropdown-menu absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-2xl border shadow-2xl z-20 p-1"
                     style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
                   >
                     {filteredUsers.map((user) => (
@@ -309,7 +322,7 @@ const EditTicketModal = ({
                           setFormData({ ...formData, assigneeId: String(user.id) });
                           setOpenDropdown(null);
                         }}
-                        className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
+                        className="w-full text-left px-3 py-2.5 text-sm transition dropdown-option"
                         style={{ color: "var(--text)" }}
                       >
                         {user.name} ({user.email})
@@ -320,31 +333,29 @@ const EditTicketModal = ({
               </div>
 
               <div className="relative">
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Status
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Status</label>
                 <button
                   type="button"
                   onClick={() => setOpenDropdown((prev) => (prev === "status" ? null : "status"))}
-                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
+                  className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
                   style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
+                    ...triggerStyle,
                     color: formData.statusId
-                      ? getStatusColor(
-                          statuses.find((s) => String(s.id) === formData.statusId)?.name || ""
-                        )
+                      ? getStatusColor(statuses.find((s) => String(s.id) === formData.statusId)?.name || "")
                       : "var(--input-text)",
                   }}
                 >
-                  {formData.statusId
-                    ? statuses.find((s) => String(s.id) === formData.statusId)?.name
-                    : "Select Status"}
+                  <span>
+                    {formData.statusId
+                      ? statuses.find((s) => String(s.id) === formData.statusId)?.name
+                      : "Select Status"}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "status" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
                 </button>
                 {openDropdown === "status" && (
                   <div
-                    className="absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-3xl shadow-2xl z-20"
-                    style={{ backgroundColor: "var(--surface)" }}
+                    className="dropdown-menu absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-2xl border shadow-2xl z-20 p-1"
+                    style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
                   >
                     {statuses.map((s) => {
                       const statusMeta = getStatusMeta(s.name);
@@ -356,10 +367,8 @@ const EditTicketModal = ({
                             setFormData({ ...formData, statusId: String(s.id) });
                             setOpenDropdown(null);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
-                          style={{
-                            color: getStatusColor(s.name),
-                          }}
+                          className="w-full text-left px-3 py-2.5 text-sm transition dropdown-option"
+                          style={{ color: getStatusColor(s.name) }}
                         >
                           <span className="flex items-center gap-2">
                             <span>{statusMeta.icon}</span>
@@ -373,24 +382,19 @@ const EditTicketModal = ({
               </div>
 
               <div className="relative">
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Priority
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Priority</label>
                 <button
                   type="button"
                   onClick={() => setOpenDropdown((prev) => (prev === "priority" ? null : "priority"))}
-                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
+                  className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
+                  style={{ ...triggerStyle, color: getPriorityColor(formData.priority) }}
                 >
-                  {formData.priority || "Select Priority"}
+                  <span>{formData.priority || "Select Priority"}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "priority" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
                 </button>
                 {openDropdown === "priority" && (
                   <div
-                    className="absolute left-0 right-0 mt-2 rounded-3xl border shadow-2xl z-20"
+                    className="dropdown-menu absolute left-0 right-0 mt-2 rounded-2xl border shadow-2xl z-20 p-1"
                     style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
                   >
                     {[
@@ -405,10 +409,8 @@ const EditTicketModal = ({
                           setFormData({ ...formData, priority: option.value });
                           setOpenDropdown(null);
                         }}
-                        className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
-                        style={{
-                          color: getPriorityColor(option.value),
-                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm transition dropdown-option"
+                        style={{ color: getPriorityColor(option.value) }}
                       >
                         {option.label}
                       </button>
@@ -420,30 +422,11 @@ const EditTicketModal = ({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-8">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              style={{
-                backgroundColor: "transparent",
-                border: "1px solid var(--border)",
-                color: "var(--text)",
-              }}
-            >
+            <button type="button" onClick={onClose} className="btn btn-ghost flex-1 px-6 py-3 text-sm uppercase tracking-widest font-bold">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              style={{
-                backgroundColor: "var(--button-bg)",
-                color: "var(--button-text)",
-                border: "1px solid var(--border)",
-                opacity: isSubmitting ? 0.6 : 1,
-              }}
-            >
-              {isSubmitting ? "Saving..." : "Save Changes"}
+            <button type="submit" disabled={isSubmitting} className="btn btn-primary flex-1 px-6 py-3 text-sm uppercase tracking-widest font-bold">
+              {isSubmitting ? (<><span className="ui-spinner h-4 w-4" /> Saving…</>) : "Save Changes"}
             </button>
           </div>
         </form>

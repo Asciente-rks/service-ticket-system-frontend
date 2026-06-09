@@ -7,6 +7,7 @@ import CreateTicketModal from "../components/CreateTicketModal";
 import TicketDetailModal from "../components/TicketDetailModal";
 import ApprovalModal from "../components/ApprovalModal";
 import EditTicketModal from "../components/EditTicketModal";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { getLoggedInUser } from "../utils/auth";
 
 const Dashboard = () => {
@@ -19,6 +20,9 @@ const Dashboard = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [approvingTicketId, setApprovingTicketId] = useState<string | null>(null);
+  const [deletingTicketId, setDeletingTicketId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -51,14 +55,24 @@ const Dashboard = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Delete this ticket? This action cannot be undone.")) return;
+  const requestDelete = (id: string) => {
+    setDeleteError("");
+    setDeletingTicketId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingTicketId) return;
+    setIsDeleting(true);
+    setDeleteError("");
     try {
-      await api.delete(`/tickets/${id}`);
+      await api.delete(`/tickets/${deletingTicketId}`);
+      setDeletingTicketId(null);
       setSelectedTicket(null);
       fetchData();
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Failed to delete ticket.");
+      setDeleteError(err?.response?.data?.message || "Failed to delete ticket.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -234,7 +248,7 @@ const Dashboard = () => {
           <button onClick={() => setIsModalOpen(true)} className="mt-4 text-sm font-semibold" style={{ color: "var(--accent)" }}>Create your first ticket</button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 stagger">
           {sortedTickets.map((t: any) => {
             const ticket = t;
             const statusName = getStatusName(ticket);
@@ -268,9 +282,9 @@ const Dashboard = () => {
                     {isAdmin && (
                       <>
                         <button
-                          onClick={(e) => { e.stopPropagation(); handleDelete(ticket.id); }}
+                          onClick={(e) => { e.stopPropagation(); requestDelete(ticket.id); }}
                           title="Delete ticket"
-                          className="p-1.5 rounded-lg transition hover:bg-red-500/10"
+                          className="p-1.5 rounded-lg transition hover:bg-red-500/10 hover:-translate-y-0.5"
                           style={{ color: "#ef4444" }}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -305,9 +319,32 @@ const Dashboard = () => {
           currentUserId={currentUser?.id}
           onApprove={() => setApprovingTicketId(selectedTicket.id)}
           onEdit={() => setIsEditModalOpen(true)}
-          onDelete={() => handleDelete(selectedTicket.id)}
+          onDelete={() => requestDelete(selectedTicket.id)}
         />
       )}
+
+      <ConfirmDialog
+        isOpen={!!deletingTicketId}
+        title="Delete this ticket?"
+        message={
+          <>
+            This action cannot be undone — the ticket and its review history will be permanently removed.
+            {deleteError && (
+              <span className="mt-2 block font-semibold text-rose-500">{deleteError}</span>
+            )}
+          </>
+        }
+        confirmLabel="Delete ticket"
+        variant="danger"
+        loading={isDeleting}
+        onConfirm={confirmDelete}
+        onCancel={() => {
+          if (!isDeleting) {
+            setDeletingTicketId(null);
+            setDeleteError("");
+          }
+        }}
+      />
 
       {selectedTicket && (
         <EditTicketModal

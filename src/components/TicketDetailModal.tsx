@@ -1,4 +1,4 @@
-import { Trash2 } from "lucide-react";
+import { Trash2, Video, ExternalLink } from "lucide-react";
 import type { TicketStatus, User } from "../types";
 import { getPriorityBadgeClasses, getStatusMeta } from "../utils/labelStyles";
 
@@ -69,11 +69,14 @@ const TicketDetailModal = ({
   const statusMeta = getStatusMeta(selectedStatus);
   const priorityClasses = getPriorityBadgeClasses(ticket.priority || "");
 
+  const jamUrl: string | null =
+    ticket.jamUrl || ticket.jam_url || null;
+
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="modal-overlay" style={{ zIndex: 110 }}>
       <div
-        className="w-full max-w-[90vw] lg:max-w-6xl max-h-[90vh] overflow-y-auto rounded-[2rem] border shadow-2xl bg-[var(--surface)] p-8"
-        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+        className="modal-panel w-full max-w-[90vw] lg:max-w-6xl max-h-[90vh] overflow-y-auto rounded-[2rem] p-8"
+        style={{ color: "var(--text)" }}
       >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between mb-8">
           <div>
@@ -115,10 +118,29 @@ const TicketDetailModal = ({
               <label className="block text-[10px] font-black uppercase tracking-widest mb-2 text-[var(--muted)]">
                 Ticket Description
               </label>
-              <p className="text-sm leading-relaxed text-[var(--text)]">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-[var(--text)]">
                 {ticket.description}
               </p>
             </div>
+
+            {jamUrl && (
+              <div className="rounded-3xl border border-[var(--border)] bg-[var(--input)] p-6">
+                <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest mb-3 text-[var(--muted)]">
+                  <Video className="h-3.5 w-3.5" /> Jam Recording
+                </label>
+                <a
+                  href={jamUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-soft inline-flex max-w-full items-center gap-2 px-4 py-2.5 text-sm font-semibold"
+                >
+                  <Video className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Watch bug recording</span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                </a>
+                <p className="mt-2 truncate text-xs font-mono" style={{ color: "var(--muted)" }}>{jamUrl}</p>
+              </div>
+            )}
 
             <div className="rounded-3xl border border-[var(--border)] bg-[var(--input)] p-6">
               <label className="block text-[10px] font-black uppercase tracking-widest mb-2 text-[var(--muted)]">
@@ -233,21 +255,14 @@ const TicketDetailModal = ({
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               {canDelete ? (
-                <button
-                  onClick={onDelete}
-                  className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5"
-                  style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "transparent" }}
-                >
+                <button onClick={onDelete} className="btn btn-danger px-5 py-3 text-sm font-bold uppercase tracking-widest">
                   <Trash2 className="h-4 w-4" /> Delete
                 </button>
               ) : (
                 <span />
               )}
               <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={onEdit}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-8 py-3 text-sm font-bold uppercase tracking-widest text-[var(--text)] transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              >
+              <button onClick={onEdit} className="btn btn-ghost px-8 py-3 text-sm font-bold uppercase tracking-widest">
                 Edit Ticket
               </button>
               {isAdmin && (
@@ -256,7 +271,7 @@ const TicketDetailModal = ({
                     onClose();
                     onApprove?.();
                   }}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--button-bg)] px-8 py-3 text-sm font-bold uppercase tracking-widest text-[var(--button-text)] transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
+                  className="btn btn-primary px-8 py-3 text-sm font-bold uppercase tracking-widest"
                 >
                   Start Review
                 </button>

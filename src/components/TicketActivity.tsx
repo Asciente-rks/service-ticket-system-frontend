@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Send, CornerDownRight, Trash2, Clock, Inbox, UserPlus, Repeat,
-  CheckCircle2, XCircle, RefreshCw, MessageSquare,
+  CheckCircle2, XCircle, RefreshCw, MessageSquare, ChevronDown, ChevronRight,
 } from "lucide-react";
 import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
@@ -12,6 +12,8 @@ interface Props {
   currentUserId?: string;
   isAdmin?: boolean;
 }
+
+type CommentNode = Omit<TicketComment, "replies"> & { replies: CommentNode[] };
 
 const timeAgo = (iso: string): string => {
   const d = new Date(iso).getTime();
@@ -29,22 +31,18 @@ const timeAgo = (iso: string): string => {
 
 const eventMeta = (e: TicketEvent): { icon: React.ReactNode; color: string; text: string } => {
   switch (e.type) {
-    case "reported":
-      return { icon: <Inbox className="h-3.5 w-3.5" />, color: "#0ea5e9", text: "Reported" };
-    case "assigned":
-      return { icon: <UserPlus className="h-3.5 w-3.5" />, color: "#0c7a98", text: `Assigned to ${e.toValue || "someone"}` };
-    case "reassigned":
-      return { icon: <Repeat className="h-3.5 w-3.5" />, color: "#f59e0b", text: `Reassigned ${e.fromValue ? `from ${e.fromValue} ` : ""}to ${e.toValue || "someone"}` };
-    case "status_changed":
-      return { icon: <RefreshCw className="h-3.5 w-3.5" />, color: "#8b5cf6", text: `Status: ${e.fromValue || "—"} → ${e.toValue || "—"}` };
-    case "approved":
-      return { icon: <CheckCircle2 className="h-3.5 w-3.5" />, color: "#22c55e", text: "Approved" };
-    case "rejected":
-      return { icon: <XCircle className="h-3.5 w-3.5" />, color: "#ef4444", text: "Rejected" };
-    default:
-      return { icon: <Clock className="h-3.5 w-3.5" />, color: "var(--muted)", text: e.type };
+    case "reported": return { icon: <Inbox className="h-3.5 w-3.5" />, color: "#0ea5e9", text: "Reported" };
+    case "assigned": return { icon: <UserPlus className="h-3.5 w-3.5" />, color: "#0c7a98", text: `Assigned to ${e.toValue || "someone"}` };
+    case "reassigned": return { icon: <Repeat className="h-3.5 w-3.5" />, color: "#f59e0b", text: `Reassigned ${e.fromValue ? `from ${e.fromValue} ` : ""}to ${e.toValue || "someone"}` };
+    case "status_changed": return { icon: <RefreshCw className="h-3.5 w-3.5" />, color: "#8b5cf6", text: `Status: ${e.fromValue || "—"} → ${e.toValue || "—"}` };
+    case "approved": return { icon: <CheckCircle2 className="h-3.5 w-3.5" />, color: "#22c55e", text: "Approved" };
+    case "rejected": return { icon: <XCircle className="h-3.5 w-3.5" />, color: "#ef4444", text: "Rejected" };
+    default: return { icon: <Clock className="h-3.5 w-3.5" />, color: "var(--muted)", text: e.type };
   }
 };
+
+const countDescendants = (n: CommentNode): number =>
+  n.replies.reduce((sum, r) => sum + 1 + countDescendants(r), 0);
 
 const Avatar = ({ name }: { name: string }) => (
   <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
@@ -53,9 +51,10 @@ const Avatar = ({ name }: { name: string }) => (
 );
 
 interface CommentItemProps {
-  comment: TicketComment;
-  isReply?: boolean;
+  node: CommentNode;
+  depth: number;
   currentUserId?: string;
+  collapsed: Set<string>;
   replyOpenId: string | null;
   replyText: string;
   posting: boolean;
@@ -63,18 +62,20 @@ interface CommentItemProps {
   onChangeReply: (v: string) => void;
   onSubmitReply: (parentId: string) => void;
   onDelete: (id: string) => void;
+  onToggleCollapse: (id: string) => void;
 }
 
-// Hoisted to module scope (NOT defined inside TicketActivity) so it keeps a
-// stable identity across renders — otherwise the reply textarea remounts on
-// every keystroke and the cursor jumps, which looked like reversed typing.
+// Module-scope (stable identity) so the reply textarea never remounts mid-typing.
 const CommentItem = ({
-  comment: c, isReply = false, currentUserId, replyOpenId, replyText, posting,
-  onToggleReply, onChangeReply, onSubmitReply, onDelete,
+  node: c, depth, currentUserId, collapsed, replyOpenId, replyText, posting,
+  onToggleReply, onChangeReply, onSubmitReply, onDelete, onToggleCollapse,
 }: CommentItemProps) => {
   const canDelete = String(c.author?.id) === String(currentUserId); // author only
+  const replyCount = c.replies.length ? countDescendants(c) : 0;
+  const isCollapsed = collapsed.has(c.id);
+
   return (
-    <div className={`flex gap-3 ${isReply ? "ml-9" : ""}`}>
+    <div className="flex gap-3">
       <Avatar name={c.author?.name || "?"} />
       <div className="flex-1 min-w-0">
         <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--border)", backgroundColor: "var(--input)" }}>
@@ -84,10 +85,15 @@ const CommentItem = ({
           </div>
           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: "var(--text)" }}>{c.body}</p>
         </div>
-        <div className="flex items-center gap-3 mt-1.5 px-1">
-          {!isReply && (
-            <button onClick={() => onToggleReply(c.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold transition hover:opacity-80" style={{ color: "var(--accent)" }}>
-              <CornerDownRight className="h-3 w-3" /> Reply
+
+        <div className="flex flex-wrap items-center gap-3 mt-1.5 px-1">
+          <button onClick={() => onToggleReply(c.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold transition hover:opacity-80" style={{ color: "var(--accent)" }}>
+            <CornerDownRight className="h-3 w-3" /> Reply
+          </button>
+          {replyCount > 0 && (
+            <button onClick={() => onToggleCollapse(c.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold transition hover:opacity-80" style={{ color: "var(--muted)" }}>
+              {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {isCollapsed ? `Show ${replyCount} ${replyCount === 1 ? "reply" : "replies"}` : "Hide thread"}
             </button>
           )}
           {canDelete && (
@@ -97,7 +103,7 @@ const CommentItem = ({
           )}
         </div>
 
-        {!isReply && replyOpenId === c.id && (
+        {replyOpenId === c.id && (
           <div className="mt-2 flex items-end gap-2 animate-slide-down">
             <textarea
               autoFocus
@@ -113,14 +119,15 @@ const CommentItem = ({
           </div>
         )}
 
-        {c.replies && c.replies.length > 0 && (
-          <div className="mt-3 space-y-3">
+        {c.replies.length > 0 && !isCollapsed && (
+          <div className="mt-3 space-y-3 border-l pl-3 sm:pl-4" style={{ borderColor: "var(--border)" }}>
             {c.replies.map((r) => (
               <CommentItem
                 key={r.id}
-                comment={r}
-                isReply
+                node={r}
+                depth={depth + 1}
                 currentUserId={currentUserId}
+                collapsed={collapsed}
                 replyOpenId={replyOpenId}
                 replyText={replyText}
                 posting={posting}
@@ -128,6 +135,7 @@ const CommentItem = ({
                 onChangeReply={onChangeReply}
                 onSubmitReply={onSubmitReply}
                 onDelete={onDelete}
+                onToggleCollapse={onToggleCollapse}
               />
             ))}
           </div>
@@ -147,6 +155,7 @@ const TicketActivity = ({ ticketId, currentUserId }: Props) => {
   const [posting, setPosting] = useState(false);
   const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -163,6 +172,19 @@ const TicketActivity = ({ ticketId, currentUserId }: Props) => {
   }, [ticketId]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Build an arbitrary-depth tree from the flat comment list.
+  const tree = useMemo<CommentNode[]>(() => {
+    const byId = new Map<string, CommentNode>();
+    comments.forEach((c) => byId.set(c.id, { ...c, replies: [] as CommentNode[] }));
+    const roots: CommentNode[] = [];
+    byId.forEach((node) => {
+      const pid = node.parentId;
+      if (pid && byId.has(pid)) byId.get(pid)!.replies.push(node);
+      else roots.push(node);
+    });
+    return roots;
+  }, [comments]);
 
   const post = async (body: string, parentId?: string) => {
     if (!body.trim()) return;
@@ -194,6 +216,12 @@ const TicketActivity = ({ ticketId, currentUserId }: Props) => {
     setReplyOpenId((prev) => (prev === id ? null : id));
     setReplyText("");
   };
+  const toggleCollapse = (id: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   return (
     <div className="space-y-8">
@@ -256,15 +284,17 @@ const TicketActivity = ({ ticketId, currentUserId }: Props) => {
           </button>
         </div>
 
-        {loading ? null : comments.length === 0 ? (
+        {loading ? null : tree.length === 0 ? (
           <p className="text-sm" style={{ color: "var(--muted)" }}>No comments yet — start the discussion.</p>
         ) : (
           <div className="space-y-5">
-            {comments.map((c) => (
+            {tree.map((c) => (
               <CommentItem
                 key={c.id}
-                comment={c}
+                node={c}
+                depth={0}
                 currentUserId={currentUserId}
+                collapsed={collapsed}
                 replyOpenId={replyOpenId}
                 replyText={replyText}
                 posting={posting}
@@ -272,6 +302,7 @@ const TicketActivity = ({ ticketId, currentUserId }: Props) => {
                 onChangeReply={setReplyText}
                 onSubmitReply={(parentId) => post(replyText, parentId)}
                 onDelete={remove}
+                onToggleCollapse={toggleCollapse}
               />
             ))}
           </div>

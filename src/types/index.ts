@@ -45,3 +45,28 @@ export interface NotificationItem {
   ticketId?: string;
   createdAt: string;
 }
+
+export interface CommentAuthor {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface TicketComment {
+  id: string;
+  ticketId: string;
+  parentId?: string | null;
+  body: string;
+  createdAt: string;
+  author: CommentAuthor;
+  replies?: TicketComment[];
+}
+
+export interface TicketEvent {
+  id: string;
+  type: "reported" | "assigned" | "reassigned" | "status_changed" | "approved" | "rejected" | string;
+  fromValue?: string | null;
+  toValue?: string | null;
+  createdAt: string;
+  actor?: { id: string; name: string } | null;
+}

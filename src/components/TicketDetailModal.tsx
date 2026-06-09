@@ -1,6 +1,7 @@
 import { Trash2, Video, ExternalLink } from "lucide-react";
 import type { TicketStatus, User } from "../types";
 import { getPriorityBadgeClasses, getStatusMeta } from "../utils/labelStyles";
+import TicketActivity from "./TicketActivity";
 
 interface Props {
   isOpen: boolean;
@@ -283,6 +284,10 @@ const TicketDetailModal = ({
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="mt-8 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
+          <TicketActivity ticketId={ticket.id} currentUserId={currentUserId} isAdmin={isAdmin} />
         </div>
       </div>
     </div>

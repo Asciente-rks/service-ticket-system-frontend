@@ -32,7 +32,7 @@ const eventMeta = (e: TicketEvent): { icon: React.ReactNode; color: string; text
     case "reported":
       return { icon: <Inbox className="h-3.5 w-3.5" />, color: "#0ea5e9", text: "Reported" };
     case "assigned":
-      return { icon: <UserPlus className="h-3.5 w-3.5" />, color: "var(--accent)", text: `Assigned to ${e.toValue || "someone"}` };
+      return { icon: <UserPlus className="h-3.5 w-3.5" />, color: "#0c7a98", text: `Assigned to ${e.toValue || "someone"}` };
     case "reassigned":
       return { icon: <Repeat className="h-3.5 w-3.5" />, color: "#f59e0b", text: `Reassigned ${e.fromValue ? `from ${e.fromValue} ` : ""}to ${e.toValue || "someone"}` };
     case "status_changed":
@@ -47,15 +47,97 @@ const eventMeta = (e: TicketEvent): { icon: React.ReactNode; color: string; text
 };
 
 const Avatar = ({ name }: { name: string }) => (
-  <span
-    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold"
-    style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
-  >
+  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
     {(name || "?")[0].toUpperCase()}
   </span>
 );
 
-const TicketActivity = ({ ticketId, currentUserId, isAdmin }: Props) => {
+interface CommentItemProps {
+  comment: TicketComment;
+  isReply?: boolean;
+  currentUserId?: string;
+  replyOpenId: string | null;
+  replyText: string;
+  posting: boolean;
+  onToggleReply: (id: string) => void;
+  onChangeReply: (v: string) => void;
+  onSubmitReply: (parentId: string) => void;
+  onDelete: (id: string) => void;
+}
+
+// Hoisted to module scope (NOT defined inside TicketActivity) so it keeps a
+// stable identity across renders — otherwise the reply textarea remounts on
+// every keystroke and the cursor jumps, which looked like reversed typing.
+const CommentItem = ({
+  comment: c, isReply = false, currentUserId, replyOpenId, replyText, posting,
+  onToggleReply, onChangeReply, onSubmitReply, onDelete,
+}: CommentItemProps) => {
+  const canDelete = String(c.author?.id) === String(currentUserId); // author only
+  return (
+    <div className={`flex gap-3 ${isReply ? "ml-9" : ""}`}>
+      <Avatar name={c.author?.name || "?"} />
+      <div className="flex-1 min-w-0">
+        <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--border)", backgroundColor: "var(--input)" }}>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{c.author?.name || "Unknown"}</span>
+            <span className="text-[11px] shrink-0" style={{ color: "var(--muted)" }}>{timeAgo(c.createdAt)}</span>
+          </div>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: "var(--text)" }}>{c.body}</p>
+        </div>
+        <div className="flex items-center gap-3 mt-1.5 px-1">
+          {!isReply && (
+            <button onClick={() => onToggleReply(c.id)} className="inline-flex items-center gap-1 text-[11px] font-semibold transition hover:opacity-80" style={{ color: "var(--accent)" }}>
+              <CornerDownRight className="h-3 w-3" /> Reply
+            </button>
+          )}
+          {canDelete && (
+            <button onClick={() => onDelete(c.id)} className="inline-flex items-center gap-1 text-[11px] font-medium transition hover:opacity-80" style={{ color: "#ef4444" }}>
+              <Trash2 className="h-3 w-3" /> Delete
+            </button>
+          )}
+        </div>
+
+        {!isReply && replyOpenId === c.id && (
+          <div className="mt-2 flex items-end gap-2 animate-slide-down">
+            <textarea
+              autoFocus
+              rows={2}
+              placeholder={`Reply to ${c.author?.name || ""}…`}
+              className="field px-3 py-2 text-sm resize-y"
+              value={replyText}
+              onChange={(e) => onChangeReply(e.target.value)}
+            />
+            <button onClick={() => onSubmitReply(c.id)} disabled={posting || !replyText.trim()} className="btn btn-primary h-10 px-4 text-sm shrink-0">
+              {posting ? <span className="ui-spinner h-4 w-4" /> : <Send className="h-4 w-4" />}
+            </button>
+          </div>
+        )}
+
+        {c.replies && c.replies.length > 0 && (
+          <div className="mt-3 space-y-3">
+            {c.replies.map((r) => (
+              <CommentItem
+                key={r.id}
+                comment={r}
+                isReply
+                currentUserId={currentUserId}
+                replyOpenId={replyOpenId}
+                replyText={replyText}
+                posting={posting}
+                onToggleReply={onToggleReply}
+                onChangeReply={onChangeReply}
+                onSubmitReply={onSubmitReply}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const TicketActivity = ({ ticketId, currentUserId }: Props) => {
   const [comments, setComments] = useState<TicketComment[]>([]);
   const [events, setEvents] = useState<TicketEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +145,7 @@ const TicketActivity = ({ ticketId, currentUserId, isAdmin }: Props) => {
 
   const [newComment, setNewComment] = useState("");
   const [posting, setPosting] = useState(false);
-  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
 
   const load = useCallback(async () => {
@@ -90,7 +172,7 @@ const TicketActivity = ({ ticketId, currentUserId, isAdmin }: Props) => {
       await api.post(`/tickets/${ticketId}/comments`, { body: body.trim(), parentId: parentId || undefined });
       setNewComment("");
       setReplyText("");
-      setReplyTo(null);
+      setReplyOpenId(null);
       await load();
     } catch (err: any) {
       setError(getApiErrorMessage(err, "Couldn't post your comment."));
@@ -108,60 +190,10 @@ const TicketActivity = ({ ticketId, currentUserId, isAdmin }: Props) => {
     }
   };
 
-  const canDelete = (authorId: string) => isAdmin || String(authorId) === String(currentUserId);
-
-  const CommentBlock = ({ c, isReply = false }: { c: TicketComment; isReply?: boolean }) => (
-    <div className={`flex gap-3 ${isReply ? "ml-9" : ""}`}>
-      <Avatar name={c.author?.name || "?"} />
-      <div className="flex-1 min-w-0">
-        <div className="rounded-2xl border px-4 py-3" style={{ borderColor: "var(--border)", backgroundColor: "var(--input)" }}>
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="text-sm font-semibold" style={{ color: "var(--text)" }}>{c.author?.name || "Unknown"}</span>
-            <span className="text-[11px] shrink-0" style={{ color: "var(--muted)" }}>{timeAgo(c.createdAt)}</span>
-          </div>
-          <p className="text-sm leading-relaxed whitespace-pre-wrap break-words" style={{ color: "var(--text)" }}>{c.body}</p>
-        </div>
-        <div className="flex items-center gap-3 mt-1.5 px-1">
-          {!isReply && (
-            <button
-              onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyText(""); }}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold transition hover:opacity-80"
-              style={{ color: "var(--accent)" }}
-            >
-              <CornerDownRight className="h-3 w-3" /> Reply
-            </button>
-          )}
-          {canDelete(c.author?.id) && (
-            <button onClick={() => remove(c.id)} className="inline-flex items-center gap-1 text-[11px] font-medium transition hover:opacity-80" style={{ color: "#ef4444" }}>
-              <Trash2 className="h-3 w-3" /> Delete
-            </button>
-          )}
-        </div>
-
-        {replyTo === c.id && (
-          <div className="mt-2 flex items-end gap-2 animate-slide-down">
-            <textarea
-              autoFocus
-              rows={2}
-              placeholder={`Reply to ${c.author?.name || ""}…`}
-              className="field px-3 py-2 text-sm resize-y"
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-            />
-            <button onClick={() => post(replyText, c.id)} disabled={posting || !replyText.trim()} className="btn btn-primary h-10 px-4 text-sm shrink-0">
-              {posting ? <span className="ui-spinner h-4 w-4" /> : <Send className="h-4 w-4" />}
-            </button>
-          </div>
-        )}
-
-        {c.replies && c.replies.length > 0 && (
-          <div className="mt-3 space-y-3">
-            {c.replies.map((r) => <CommentBlock key={r.id} c={r} isReply />)}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  const toggleReply = (id: string) => {
+    setReplyOpenId((prev) => (prev === id ? null : id));
+    setReplyText("");
+  };
 
   return (
     <div className="space-y-8">
@@ -183,7 +215,7 @@ const TicketActivity = ({ ticketId, currentUserId, isAdmin }: Props) => {
               const m = eventMeta(e);
               return (
                 <li key={e.id} className="relative flex items-start gap-3 pb-4 last:pb-0">
-                  <span className="relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full" style={{ backgroundColor: `${m.color === "var(--accent)" ? "var(--accent-soft)" : m.color + "22"}`, color: m.color }}>
+                  <span className="relative z-10 grid h-6 w-6 shrink-0 place-items-center rounded-full" style={{ backgroundColor: `${m.color}22`, color: m.color }}>
                     {m.icon}
                   </span>
                   <div className="pt-0.5">
@@ -211,7 +243,6 @@ const TicketActivity = ({ ticketId, currentUserId, isAdmin }: Props) => {
           </div>
         )}
 
-        {/* New comment */}
         <div className="flex items-end gap-2 mb-6">
           <textarea
             rows={2}
@@ -229,7 +260,20 @@ const TicketActivity = ({ ticketId, currentUserId, isAdmin }: Props) => {
           <p className="text-sm" style={{ color: "var(--muted)" }}>No comments yet — start the discussion.</p>
         ) : (
           <div className="space-y-5">
-            {comments.map((c) => <CommentBlock key={c.id} c={c} />)}
+            {comments.map((c) => (
+              <CommentItem
+                key={c.id}
+                comment={c}
+                currentUserId={currentUserId}
+                replyOpenId={replyOpenId}
+                replyText={replyText}
+                posting={posting}
+                onToggleReply={toggleReply}
+                onChangeReply={setReplyText}
+                onSubmitReply={(parentId) => post(replyText, parentId)}
+                onDelete={remove}
+              />
+            ))}
           </div>
         )}
       </div>

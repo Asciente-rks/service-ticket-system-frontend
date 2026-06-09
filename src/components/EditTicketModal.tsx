@@ -100,12 +100,6 @@ const EditTicketModal = ({
     };
   }, []);
 
-  const superAdminRoleId = roles.find((r) =>
-    ["superadmin", "super admin"].includes(r.name.toLowerCase()),
-  )?.id;
-  const adminRoleId = roles.find((r) =>
-    ["admin", "administrator"].includes(r.name.toLowerCase()),
-  )?.id;
   const developerRoleId = roles.find((r) =>
     ["developer", "dev", "devs"].includes(r.name.toLowerCase()),
   )?.id;
@@ -116,26 +110,6 @@ const EditTicketModal = ({
   const actorRoleId = currentUser?.roleId
     ? String(currentUser.roleId).toLowerCase()
     : "";
-
-  const isSuperAdmin = !!(
-    superAdminRoleId && actorRoleId === String(superAdminRoleId).toLowerCase()
-  );
-  const isRegularAdmin = !!(
-    adminRoleId && actorRoleId === String(adminRoleId).toLowerCase()
-  );
-  const isAdmin = isSuperAdmin || isRegularAdmin;
-
-  const isReporter = !!(
-    currentUser?.id &&
-    ticket &&
-    String(
-      (ticket as any).reportedBy ||
-        (ticket as any).reported_by ||
-        (ticket as any).reporter?.id,
-    ).toLowerCase() === String(currentUser.id).toLowerCase()
-  );
-
-  const canEditCoreDetails = isAdmin || isReporter;
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -209,8 +183,8 @@ const EditTicketModal = ({
     e.preventDefault();
     setError("");
 
-    if (canEditCoreDetails && !formData.title.trim()) { setError("Title is required."); return; }
-    if (canEditCoreDetails && !formData.description.trim()) { setError("Description is required."); return; }
+    if (!formData.title.trim()) { setError("Title is required."); return; }
+    if (!formData.description.trim()) { setError("Description is required."); return; }
 
     setIsSubmitting(true);
 
@@ -272,7 +246,6 @@ const EditTicketModal = ({
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Title</label>
                 <input
                   required
-                  disabled={!canEditCoreDetails}
                   className="field px-4 py-3 outline-none"
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -283,7 +256,6 @@ const EditTicketModal = ({
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Description</label>
                 <textarea
                   required
-                  disabled={!canEditCoreDetails}
                   rows={4}
                   className="field px-4 py-3 outline-none resize-y"
                   value={formData.description}
@@ -300,7 +272,6 @@ const EditTicketModal = ({
                   <Video className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "var(--muted)" }} />
                   <input
                     type="url"
-                    disabled={!canEditCoreDetails}
                     placeholder="https://jam.dev/c/your-recording"
                     className="field pl-10 pr-4 py-3 outline-none"
                     value={formData.jamUrl}

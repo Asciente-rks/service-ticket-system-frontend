@@ -13,6 +13,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Onboarding from "./pages/Onboarding";
 import NotificationsPage from "./pages/NotificationsPage";
 import ConversationsPage from "./pages/ConversationsPage";
+import AiChatPage from "./pages/AiChatPage";
 import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Settings from "./components/Settings";
@@ -76,6 +77,17 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <ConversationsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/ai"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AiChatPage />
                 </Layout>
               </ProtectedRoute>
             }

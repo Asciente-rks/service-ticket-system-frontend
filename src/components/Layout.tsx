@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare } from "lucide-react";
+import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare, Sparkles } from "lucide-react";
 import { getLoggedInUser, logout } from "../utils/auth";
 import api from "../services/api";
 import type { User, Role, Organization, NotificationItem } from "../types";
@@ -111,6 +111,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
       { name: "Dashboard", path: "/dashboard", icon: Home },
       { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
+      { name: "AI Assistant", path: "/ai", icon: Sparkles },
     ];
     if (isAdmin) items.push({ name: "Team", path: "/users", icon: Users });
     return items;

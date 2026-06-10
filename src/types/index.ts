@@ -90,3 +90,29 @@ export interface ChatMessage {
   createdAt: string;
   sender: { id: string; name: string; email: string } | null;
 }
+
+export interface AiTicketRef {
+  id: string;
+  title: string;
+  status?: string;
+  priority?: string;
+}
+
+export interface AiConversation {
+  id: string;
+  title: string;
+  lastMessageAt: string | null;
+  lastMessagePreview: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiMessage {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant";
+  body: string;
+  ticketRefs: AiTicketRef[];
+  meta: { provider?: string; model?: string; error?: boolean } | null;
+  createdAt: string;
+}

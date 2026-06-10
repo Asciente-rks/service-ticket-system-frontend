@@ -1,7 +1,9 @@
-import { Trash2, Video, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { Trash2, Video, ExternalLink, Sparkles } from "lucide-react";
 import type { TicketStatus, User } from "../types";
 import { getPriorityBadgeClasses, getStatusMeta } from "../utils/labelStyles";
 import TicketActivity from "./TicketActivity";
+import TicketAiAssistant from "./TicketAiAssistant";
 
 interface Props {
   isOpen: boolean;
@@ -28,6 +30,8 @@ const TicketDetailModal = ({
   onEdit,
   onDelete,
 }: Props) => {
+  const [aiOpen, setAiOpen] = useState(false);
+
   if (!isOpen) return null;
 
   const reporterId = String(
@@ -92,6 +96,14 @@ const TicketDetailModal = ({
               {ticket.title}
             </h2>
           </div>
+          <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => setAiOpen(true)}
+            className="btn btn-soft h-12 px-4 text-xs font-bold uppercase tracking-widest"
+            title="Ask AI about this ticket"
+          >
+            <Sparkles className="h-4 w-4" /> AI Assistant
+          </button>
           <button
             onClick={onClose}
             className="rounded-full border border-[var(--border)] p-3 text-[var(--muted)] transition duration-200 ease-out hover:text-[var(--text)] hover:border-[var(--text)] hover:bg-[var(--card)]"
@@ -111,6 +123,7 @@ const TicketDetailModal = ({
               <path d="m6 6 12 12" />
             </svg>
           </button>
+          </div>
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[1.75fr_1fr]">
@@ -290,6 +303,13 @@ const TicketDetailModal = ({
           <TicketActivity ticketId={ticket.id} currentUserId={currentUserId} isAdmin={isAdmin} />
         </div>
       </div>
+
+      <TicketAiAssistant
+        isOpen={aiOpen}
+        onClose={() => setAiOpen(false)}
+        ticketId={ticket.id}
+        ticketTitle={ticket.title}
+      />
     </div>
   );
 };

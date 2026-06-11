@@ -54,16 +54,29 @@ const splitInline = (line: string): InlineSeg[] => {
 
 type LineBlock =
   | { kind: "bullet"; segs: InlineSeg[] }
+  | { kind: "numbered"; num: string; segs: InlineSeg[] }
   | { kind: "heading"; segs: InlineSeg[] }
+  | { kind: "divider" }
   | { kind: "text"; segs: InlineSeg[] }
   | { kind: "gap" };
+
+/** Section-header-ish line: fully bold, or a short label ending with ":". */
+const isHeadingLine = (line: string): boolean => {
+  if (/^\*\*[^*]+\*\*:?\s*$/.test(line)) return true;
+  if (line.length <= 48 && /:$/.test(line) && !line.includes("[ticket:")) return true;
+  return false;
+};
 
 const toBlocks = (body: string): LineBlock[] => {
   return body.split("\n").map((rawLine): LineBlock => {
     const line = rawLine.trim();
     if (line === "") return { kind: "gap" };
+    if (/^[-*_]{3,}$/.test(line)) return { kind: "divider" };
     if (/^[-*•]\s+/.test(line)) return { kind: "bullet", segs: splitInline(line.replace(/^[-*•]\s+/, "")) };
+    const numbered = line.match(/^(\d{1,3})[.)]\s+(.*)$/);
+    if (numbered) return { kind: "numbered", num: numbered[1], segs: splitInline(numbered[2]) };
     if (/^#{1,4}\s+/.test(line)) return { kind: "heading", segs: splitInline(line.replace(/^#{1,4}\s+/, "")) };
+    if (isHeadingLine(line)) return { kind: "heading", segs: splitInline(line) };
     return { kind: "text", segs: splitInline(line) };
   });
 };
@@ -174,7 +187,7 @@ const AiMessageBody = ({
   const inlineIds = useMemo(() => {
     const ids = new Set<string>();
     for (const b of blocks) {
-      if (b.kind === "gap") continue;
+      if (b.kind === "gap" || b.kind === "divider") continue;
       for (const s of b.segs) if (s.type === "ticket") ids.add(s.id);
     }
     return ids;
@@ -192,19 +205,35 @@ const AiMessageBody = ({
             if (!prev || prev.kind === "gap") return null;
             return <div key={i} style={{ height: 6 }} />;
           }
+          if (block.kind === "divider") {
+            return <div key={i} style={{ height: 1, backgroundColor: "var(--border)", margin: "8px 0" }} />;
+          }
           if (block.kind === "bullet") {
             return (
-              <div key={i} className="flex gap-2" style={{ margin: "2px 0", paddingLeft: 6 }}>
-                <span className="shrink-0 select-none" style={{ color: "var(--muted)" }}>•</span>
-                <span className="min-w-0">
+              <div key={i} className="flex gap-2" style={{ margin: "3px 0", paddingLeft: 8 }}>
+                <span className="shrink-0 select-none" style={{ color: "var(--accent)" }}>•</span>
+                <span className="min-w-0 flex-1">
+                  <InlineSegments segs={block.segs} onNavigate={onNavigate} />
+                </span>
+              </div>
+            );
+          }
+          if (block.kind === "numbered") {
+            return (
+              <div key={i} className="flex gap-2" style={{ margin: "3px 0", paddingLeft: 8 }}>
+                <span className="shrink-0 select-none text-xs font-bold" style={{ color: "var(--accent)", minWidth: 16, paddingTop: 2 }}>
+                  {block.num}.
+                </span>
+                <span className="min-w-0 flex-1">
                   <InlineSegments segs={block.segs} onNavigate={onNavigate} />
                 </span>
               </div>
             );
           }
           if (block.kind === "heading") {
+            const prev = blocks[i - 1];
             return (
-              <p key={i} className="font-bold" style={{ margin: "6px 0 2px" }}>
+              <p key={i} className="font-bold" style={{ margin: prev && prev.kind !== "gap" ? "10px 0 3px" : "2px 0 3px" }}>
                 <InlineSegments segs={block.segs} onNavigate={onNavigate} />
               </p>
             );

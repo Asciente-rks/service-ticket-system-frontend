@@ -15,15 +15,19 @@ import { getApiErrorMessage } from "../utils/apiError";
 import AiMessageBody from "../components/AiMessageBody";
 import type { AiConversation, AiMessage } from "../types";
 
+// All times displayed in Philippine time (the system's user base).
+const PH_TZ = "Asia/Manila";
+
 const timeShort = (iso: string | null): string => {
   if (!iso) return "";
   const d = new Date(iso);
   const now = new Date();
-  if (d.toDateString() === now.toDateString())
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const dayOf = (x: Date) => x.toLocaleDateString("en-US", { timeZone: PH_TZ });
+  if (dayOf(d) === dayOf(now))
+    return d.toLocaleTimeString("en-US", { timeZone: PH_TZ, hour: "numeric", minute: "2-digit" });
   const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
-  if (diffDays < 7) return d.toLocaleDateString([], { weekday: "short" });
-  return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  if (diffDays < 7) return d.toLocaleDateString("en-US", { timeZone: PH_TZ, weekday: "short" });
+  return d.toLocaleDateString("en-US", { timeZone: PH_TZ, month: "short", day: "numeric" });
 };
 
 const SUGGESTIONS = [
@@ -315,12 +319,15 @@ const AiChatPage = () => {
                   )}
 
                   {!isRenaming && (
-                    <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1 group-hover:flex" style={{ backgroundColor: active ? "var(--accent-soft)" : "var(--surface)" }}>
+                    <div
+                      className="absolute right-3 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-xl border px-1 py-0.5 shadow-sm group-hover:flex"
+                      style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
+                    >
                       <button
                         onClick={(e) => { e.stopPropagation(); startRename(c); }}
                         className="p-1.5 rounded-lg transition hover:bg-[var(--accent-soft)]"
                         style={{ color: "var(--muted)" }}
-                        title="Rename"
+                        title="Rename chat"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -329,7 +336,7 @@ const AiChatPage = () => {
                         disabled={deletingId === c.id}
                         className="p-1.5 rounded-lg transition hover:bg-[var(--accent-soft)]"
                         style={{ color: "#ef4444" }}
-                        title="Delete"
+                        title="Delete chat"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -428,7 +435,6 @@ const AiChatPage = () => {
                         )}
                         <span className="mt-1 block text-[10px]" style={{ color: mine ? "rgba(255,255,255,0.7)" : "var(--muted)" }}>
                           {timeShort(m.createdAt)}
-                          {!mine && m.meta?.model ? ` · ${m.meta.model.split("/").pop()}` : ""}
                         </span>
                       </div>
                     </div>

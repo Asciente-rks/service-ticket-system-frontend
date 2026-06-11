@@ -64,12 +64,18 @@ const CollectionsPage = () => {
     fetchData();
   }, [fetchData]);
 
+  const enterCollection = (c: Collection, replace = false) => {
+    localStorage.setItem("activeCollection", JSON.stringify({ id: c.id, name: c.name }));
+    navigate(`/dashboard?collection=${c.id}`, { replace });
+  };
+
   // Single collection → straight into its dashboard (unless browsing via ?all=1).
   useEffect(() => {
     if (!loading && !showAll && collections.length === 1) {
-      navigate(`/dashboard?collection=${collections[0].id}`, { replace: true });
+      enterCollection(collections[0], true);
     }
-  }, [loading, showAll, collections, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, showAll, collections]);
 
   const openCreate = () => {
     setEditing(null);
@@ -178,7 +184,7 @@ const CollectionsPage = () => {
           {collections.map((c) => (
             <div
               key={c.id}
-              onClick={() => navigate(`/dashboard?collection=${c.id}`)}
+              onClick={() => enterCollection(c)}
               className="group p-5 rounded-2xl border transition-all flex flex-col cursor-pointer hover:-translate-y-0.5 hover:shadow-lg"
               style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
             >

@@ -81,6 +81,9 @@ const toBlocks = (body: string): LineBlock[] => {
   });
 };
 
+const ticketUrl = (id: string, collectionId?: string | null) =>
+  collectionId ? `/dashboard?collection=${collectionId}&ticketId=${id}` : `/dashboard?ticketId=${id}`;
+
 export const TicketChip = ({
   ticket,
   onOpen,
@@ -102,7 +105,7 @@ export const TicketChip = ({
     <button
       onClick={() => {
         onOpen?.();
-        navigate(`/dashboard?ticketId=${ticket.id}`);
+        navigate(ticketUrl(ticket.id, ticket.collectionId));
       }}
       className="flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
       style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
@@ -132,10 +135,12 @@ export const TicketChip = ({
 const InlineTicketLink = ({
   id,
   title,
+  collectionId,
   onNavigate,
 }: {
   id: string;
   title: string;
+  collectionId?: string | null;
   onNavigate?: () => void;
 }) => {
   const navigate = useNavigate();
@@ -143,7 +148,7 @@ const InlineTicketLink = ({
     <button
       onClick={() => {
         onNavigate?.();
-        navigate(`/dashboard?ticketId=${id}`);
+        navigate(ticketUrl(id, collectionId));
       }}
       className="inline-flex max-w-full items-center gap-1 rounded-lg border px-1.5 py-0.5 align-baseline text-xs font-semibold transition hover:bg-[var(--accent-soft)]"
       style={{ borderColor: "var(--accent)", color: "var(--accent)", margin: "0 2px", verticalAlign: "baseline" }}
@@ -157,15 +162,17 @@ const InlineTicketLink = ({
 
 const InlineSegments = ({
   segs,
+  collectionOf,
   onNavigate,
 }: {
   segs: InlineSeg[];
+  collectionOf?: Map<string, string>;
   onNavigate?: () => void;
 }) => (
   <>
     {segs.map((seg, i) =>
       seg.type === "ticket" ? (
-        <InlineTicketLink key={i} id={seg.id} title={seg.title} onNavigate={onNavigate} />
+        <InlineTicketLink key={i} id={seg.id} title={seg.title} collectionId={collectionOf?.get(seg.id)} onNavigate={onNavigate} />
       ) : (
         <span key={i} dangerouslySetInnerHTML={{ __html: inlineMd(escapeHtml(seg.text)) }} />
       ),
@@ -195,6 +202,12 @@ const AiMessageBody = ({
 
   const chipRefs = ticketRefs.filter((r) => !inlineIds.has(r.id)).slice(0, 8);
 
+  const collectionOf = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const r of ticketRefs) if (r.collectionId) map.set(r.id, String(r.collectionId));
+    return map;
+  }, [ticketRefs]);
+
   return (
     <div>
       <div className="text-sm leading-relaxed break-words">
@@ -213,7 +226,7 @@ const AiMessageBody = ({
               <div key={i} className="flex gap-2" style={{ margin: "3px 0", paddingLeft: 8 }}>
                 <span className="shrink-0 select-none" style={{ color: "var(--accent)" }}>•</span>
                 <span className="min-w-0 flex-1">
-                  <InlineSegments segs={block.segs} onNavigate={onNavigate} />
+                  <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
                 </span>
               </div>
             );
@@ -225,7 +238,7 @@ const AiMessageBody = ({
                   {block.num}.
                 </span>
                 <span className="min-w-0 flex-1">
-                  <InlineSegments segs={block.segs} onNavigate={onNavigate} />
+                  <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
                 </span>
               </div>
             );
@@ -234,13 +247,13 @@ const AiMessageBody = ({
             const prev = blocks[i - 1];
             return (
               <p key={i} className="font-bold" style={{ margin: prev && prev.kind !== "gap" ? "10px 0 3px" : "2px 0 3px" }}>
-                <InlineSegments segs={block.segs} onNavigate={onNavigate} />
+                <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
               </p>
             );
           }
           return (
             <p key={i} style={{ margin: "2px 0" }}>
-              <InlineSegments segs={block.segs} onNavigate={onNavigate} />
+              <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
             </p>
           );
         })}

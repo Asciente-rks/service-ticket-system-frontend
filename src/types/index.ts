@@ -108,6 +108,7 @@ export interface AiTicketRef {
   title: string;
   status?: string;
   priority?: string;
+  collectionId?: string | null;
 }
 
 export interface AiConversation {

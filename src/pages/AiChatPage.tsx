@@ -48,9 +48,22 @@ const AiAvatar = ({ size = 34 }: { size?: number }) => (
   </span>
 );
 
+const readActiveCollection = (): { id: string; name: string } | null => {
+  try {
+    const raw = localStorage.getItem("activeCollection");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.id && parsed?.name ? { id: String(parsed.id), name: String(parsed.name) } : null;
+  } catch {
+    return null;
+  }
+};
+
 const AiChatPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<AiConversation[]>([]);
+  // The user's active collection (their current project space) scopes the AI.
+  const [aiScope, setAiScope] = useState<{ id: string; name: string } | null>(readActiveCollection);
   const [loadingList, setLoadingList] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -107,6 +120,17 @@ const AiChatPage = () => {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length, sending, selectedId]);
+
+  // After duplicate deletions, ask the AI to re-verify once the user pauses
+  // (debounced so deleting several tickets triggers a single re-check).
+  const recheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleDuplicateDeleted = () => {
+    if (recheckTimer.current) clearTimeout(recheckTimer.current);
+    recheckTimer.current = setTimeout(() => {
+      send("I've deleted the selected duplicate ticket(s). Please verify again whether any duplicates remain.");
+    }, 1800);
+  };
+  useEffect(() => () => { if (recheckTimer.current) clearTimeout(recheckTimer.current); }, []);
 
   const openConversation = async (id: string) => {
     setSelectedId(id);
@@ -178,7 +202,10 @@ const AiChatPage = () => {
     ]);
 
     try {
-      const res = await api.post(`/ai/conversations/${convoId}/messages`, { body });
+      const res = await api.post(`/ai/conversations/${convoId}/messages`, {
+        body,
+        ...(aiScope ? { collectionId: aiScope.id } : {}),
+      });
       const { userMessage, assistantMessage, conversation } = res.data || {};
       setMessages((prev) => {
         const withoutTemp = prev.filter((m) => m.id !== tempId);
@@ -406,8 +433,20 @@ const AiChatPage = () => {
               <AiAvatar size={36} />
               <div className="min-w-0">
                 <p className="text-sm font-bold truncate" style={{ color: "var(--text)" }}>{selected?.title || "AI chat"}</p>
-                <p className="text-[11px] truncate" style={{ color: "var(--muted)" }}>
-                  Knows your organization's tickets · responses may take a few seconds
+                <p className="flex items-center gap-1.5 text-[11px] truncate" style={{ color: "var(--muted)" }}>
+                  {aiScope ? (
+                    <>
+                      <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
+                        {aiScope.name}
+                      </span>
+                      <span className="truncate">collection · responses may take a few seconds</span>
+                      <button onClick={() => setAiScope(null)} title="Switch to organization-wide answers" className="shrink-0 underline decoration-dotted" style={{ color: "var(--muted)" }}>
+                        org-wide
+                      </button>
+                    </>
+                  ) : (
+                    <span className="truncate">Knows your organization's tickets · responses may take a few seconds</span>
+                  )}
                 </p>
               </div>
             </header>
@@ -455,7 +494,7 @@ const AiChatPage = () => {
                             {!!m.meta?.duplicateGroups?.length && (
                               <DuplicateReviewCard
                                 groups={m.meta.duplicateGroups}
-                                onKeepAll={() => send("Keep everything for now — I'll review the duplicates later.")}
+                                onTicketDeleted={handleDuplicateDeleted}
                               />
                             )}
                           </>

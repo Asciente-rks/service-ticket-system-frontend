@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Video, ChevronDown, FolderKanban } from "lucide-react";
+import { Video, ChevronDown } from "lucide-react";
 import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
-import type { Ticket, TicketStatus, User, Role, Collection } from "../types";
+import type { Ticket, TicketStatus, User, Role } from "../types";
 import { getLoggedInUser } from "../utils/auth";
 import { getStatusMeta } from "../utils/labelStyles";
 
@@ -14,7 +14,6 @@ interface Props {
   statuses: TicketStatus[];
   users: User[];
   roles: Role[];
-  collections?: Collection[];
 }
 
 const EditTicketModal = ({
@@ -25,11 +24,10 @@ const EditTicketModal = ({
   statuses,
   users,
   roles,
-  collections = [],
 }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | "collection" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -37,7 +35,6 @@ const EditTicketModal = ({
     priority: "Medium",
     statusId: "",
     assigneeId: "",
-    collectionId: "",
   });
   const dropdownGroupRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +71,6 @@ const EditTicketModal = ({
             (ticket as any).assignee?.id ||
             "",
         ),
-        collectionId: String((ticket as any).collectionId || (ticket as any).collection_id || ""),
       });
     }
   }, [isOpen, ticket, statuses]);
@@ -203,7 +199,6 @@ const EditTicketModal = ({
         assigneeId: formData.assigneeId || null,
       };
       if (formData.statusId) payload.statusId = formData.statusId;
-      if (formData.collectionId) payload.collectionId = formData.collectionId;
 
       await api.patch(`/tickets/${ticket.id}`, payload);
       onSuccess();
@@ -287,52 +282,6 @@ const EditTicketModal = ({
             </div>
 
             <div className="space-y-4" ref={dropdownGroupRef}>
-              {collections.length > 0 && (
-                <div className="relative">
-                  <label className={labelCls} style={{ color: "var(--muted)" }}>Collection</label>
-                  <button
-                    type="button"
-                    onClick={() => setOpenDropdown((prev) => (prev === "collection" ? null : "collection"))}
-                    className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
-                    style={triggerStyle}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      <FolderKanban className="h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} />
-                      <span className="truncate">
-                        {formData.collectionId
-                          ? collections.find((c) => String(c.id) === formData.collectionId)?.name || "Select Collection"
-                          : "Select Collection"}
-                      </span>
-                    </span>
-                    <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "collection" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
-                  </button>
-                  {openDropdown === "collection" && (
-                    <div
-                      className="dropdown-menu absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-2xl border shadow-2xl z-20 p-1"
-                      style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
-                    >
-                      {collections.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => {
-                            setFormData({ ...formData, collectionId: String(c.id) });
-                            setOpenDropdown(null);
-                          }}
-                          className={`w-full text-left px-3 py-2.5 text-sm transition dropdown-option ${formData.collectionId === String(c.id) ? "selected" : ""}`}
-                          style={{ color: "var(--text)" }}
-                        >
-                          <span className="flex items-center gap-2">
-                            <FolderKanban className="h-4 w-4" style={{ color: "var(--accent)" }} />
-                            <span>{c.name}</span>
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
               <div className="relative">
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Assign To</label>
                 <button

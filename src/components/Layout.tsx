@@ -110,7 +110,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const menuItems = useMemo(() => {
     const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
       { name: "Collections", path: "/collections?all=1", icon: FolderKanban },
-      { name: "Dashboard", path: "/dashboard", icon: Home },
       { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
       { name: "AI Assistant", path: "/ai", icon: Sparkles },
     ];
@@ -140,7 +139,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
         <nav className="flex-1 px-3 pt-3 space-y-1.5">
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.path.split("?")[0];
+            const basePath = item.path.split("?")[0];
+            const isActive = location.pathname === basePath || (basePath === "/collections" && location.pathname === "/dashboard");
             const Icon = item.icon;
             return (
               <Link

@@ -117,16 +117,20 @@ const Dashboard = () => {
     const ticketId = searchParams.get("ticketId");
     if (!ticketId) return;
 
-    const clearParam = () => {
+    // When the deep link has no collection, adopt the ticket's own collection
+    // so the board behind the modal is its project space (strict separation).
+    const clearParam = (ticket?: any) => {
       const newParams = new URLSearchParams(searchParams);
       newParams.delete("ticketId");
+      const cid = ticket?.collectionId || ticket?.collection_id || null;
+      if (!newParams.get("collection") && cid) newParams.set("collection", String(cid));
       setSearchParams(newParams, { replace: true });
     };
 
     const fromList = tickets.find((t) => String(t.id) === String(ticketId));
     if (fromList) {
       setSelectedTicket(fromList);
-      clearParam();
+      clearParam(fromList);
       return;
     }
 
@@ -136,7 +140,7 @@ const Dashboard = () => {
       .then((res) => {
         if (active && res.data) {
           setSelectedTicket(res.data);
-          clearParam();
+          clearParam(res.data);
         }
       })
       .catch(() => {
@@ -146,6 +150,16 @@ const Dashboard = () => {
       active = false;
     };
   }, [tickets, searchParams, setSearchParams]);
+
+  // Strict collection separation: the dashboard always belongs to a collection.
+  // Arriving with neither a collection nor a ticket deep-link routes back to
+  // the Collections page (which auto-enters a single collection).
+  useEffect(() => {
+    if (!searchParams.get("collection") && !searchParams.get("ticketId") && !selectedTicket) {
+      navigate("/collections", { replace: true });
+    }
+  }, [searchParams, selectedTicket, navigate]);
+
 
   const getStatusName = (t: any): string => {
     if (typeof t.status === "string") return t.status;
@@ -206,6 +220,17 @@ const Dashboard = () => {
 
   const activeCollectionId = searchParams.get("collection");
   const activeCollection = collections.find((c) => String(c.id) === String(activeCollectionId)) || null;
+
+  // Remember the active collection — the AI Assistant scopes itself to it.
+  useEffect(() => {
+    if (activeCollection) {
+      localStorage.setItem(
+        "activeCollection",
+        JSON.stringify({ id: activeCollection.id, name: activeCollection.name }),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCollection?.id, activeCollection?.name]);
 
   // Collection scope: when arriving from the Collections page, the whole
   // dashboard (stats + list) reflects only that collection's tickets.
@@ -458,7 +483,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      <CreateTicketModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchData} collections={collections} defaultCollectionId={activeCollectionId || undefined} />
+      <CreateTicketModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchData} defaultCollectionId={activeCollectionId || undefined} />
 
       {selectedTicket && (
         <TicketDetailModal
@@ -507,7 +532,6 @@ const Dashboard = () => {
           statuses={statuses}
           users={users}
           roles={roles}
-          collections={collections}
         />
       )}
 

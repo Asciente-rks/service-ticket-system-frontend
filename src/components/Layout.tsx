@@ -123,12 +123,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   }, [location.pathname, location.search]);
 
   const menuItems = useMemo(() => {
-    const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [];
+    const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
+      { name: "Collections", path: "/collections?all=1", icon: FolderKanban },
+    ];
     if (activeCollection) {
       items.push({ name: activeCollection.name, path: `/dashboard?collection=${activeCollection.id}`, icon: Home });
     }
     items.push(
-      { name: "Collections", path: "/collections?all=1", icon: FolderKanban },
       { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
       { name: "AI Assistant", path: "/ai", icon: Sparkles },
     );

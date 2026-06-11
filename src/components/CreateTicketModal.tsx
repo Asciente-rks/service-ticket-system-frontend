@@ -1,16 +1,18 @@
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Video, ChevronDown } from "lucide-react";
+import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Video, ChevronDown, FolderKanban } from "lucide-react";
 import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
-import type { TicketStatus, User } from "../types";
+import type { TicketStatus, User, Collection } from "../types";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  collections?: Collection[];
+  defaultCollectionId?: string;
 }
 
-const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
+const CreateTicketModal = ({ isOpen, onClose, onSuccess, collections = [], defaultCollectionId }: Props) => {
   const [statuses, setStatuses] = useState<TicketStatus[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -24,8 +26,9 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
     priority: "",
     statusId: "",
     assignedTo: "",
+    collectionId: "",
   });
-  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | "collection" | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const dropdownGroupRef = useRef<HTMLDivElement>(null);
 
@@ -127,6 +130,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
         priority: "",
         statusId: "",
         assignedTo: "",
+        collectionId: defaultCollectionId || collections[0]?.id || "",
       });
       setError("");
       fetchData();
@@ -150,7 +154,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
 
     setIsSubmitting(true);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         title: formData.title,
         description: formData.description,
         jamUrl: formData.jamUrl.trim() || null,
@@ -158,6 +162,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
         statusId: formData.statusId || null,
         assigneeId: formData.assignedTo || null,
       };
+      if (formData.collectionId) payload.collectionId = formData.collectionId;
 
       await api.post("/tickets", payload);
       onSuccess();
@@ -249,6 +254,52 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess }: Props) => {
             </div>
 
             <div className="space-y-4" ref={dropdownGroupRef}>
+              {collections.length > 0 && (
+                <div className="relative">
+                  <label className={labelCls} style={{ color: "var(--muted)" }}>Collection</label>
+                  <button
+                    type="button"
+                    onClick={() => setOpenDropdown((prev) => (prev === "collection" ? null : "collection"))}
+                    className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
+                    style={triggerStyle}
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      <FolderKanban className="h-4 w-4 shrink-0" style={{ color: "var(--accent)" }} />
+                      <span className="truncate">
+                        {formData.collectionId
+                          ? collections.find((c) => String(c.id) === formData.collectionId)?.name || "Select Collection"
+                          : "Select Collection"}
+                      </span>
+                    </span>
+                    <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "collection" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
+                  </button>
+                  {openDropdown === "collection" && (
+                    <div
+                      className="dropdown-menu absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-2xl border shadow-2xl z-20 p-1"
+                      style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
+                    >
+                      {collections.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData({ ...formData, collectionId: String(c.id) });
+                            setOpenDropdown(null);
+                          }}
+                          className={`w-full text-left px-3 py-2.5 text-sm transition dropdown-option ${formData.collectionId === String(c.id) ? "selected" : ""}`}
+                          style={{ color: "var(--text)" }}
+                        >
+                          <span className="flex items-center gap-2">
+                            <FolderKanban className="h-4 w-4" style={{ color: "var(--accent)" }} />
+                            <span>{c.name}</span>
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="relative">
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Assign To</label>
                 <button

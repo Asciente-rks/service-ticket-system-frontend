@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare, Sparkles } from "lucide-react";
+import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare, Sparkles, FolderKanban } from "lucide-react";
 import { getLoggedInUser, logout } from "../utils/auth";
 import api from "../services/api";
 import type { User, Role, Organization, NotificationItem } from "../types";
@@ -109,6 +109,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const menuItems = useMemo(() => {
     const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
+      { name: "Collections", path: "/collections?all=1", icon: FolderKanban },
       { name: "Dashboard", path: "/dashboard", icon: Home },
       { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
       { name: "AI Assistant", path: "/ai", icon: Sparkles },
@@ -139,7 +140,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
         <nav className="flex-1 px-3 pt-3 space-y-1.5">
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname === item.path.split("?")[0];
             const Icon = item.icon;
             return (
               <Link

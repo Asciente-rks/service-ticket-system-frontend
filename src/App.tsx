@@ -13,6 +13,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Onboarding from "./pages/Onboarding";
 import NotificationsPage from "./pages/NotificationsPage";
 import ConversationsPage from "./pages/ConversationsPage";
+import CollectionsPage from "./pages/CollectionsPage";
 import AiChatPage from "./pages/AiChatPage";
 import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -34,6 +35,17 @@ function App() {
             element={
               <ProtectedRoute requireOrg={false}>
                 <Onboarding />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/collections"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CollectionsPage />
+                </Layout>
               </ProtectedRoute>
             }
           />

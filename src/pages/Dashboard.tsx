@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
-import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Trash2, Plus, Ticket as TicketIcon } from "lucide-react";
+import { useSearchParams, Link } from "react-router-dom";
+import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Trash2, Plus, Ticket as TicketIcon, FolderKanban } from "lucide-react";
 import api from "../services/api";
-import type { Ticket, TicketStatus, User, Role } from "../types";
+import type { Ticket, TicketStatus, User, Role, Collection } from "../types";
 import CreateTicketModal from "../components/CreateTicketModal";
 import TicketDetailModal from "../components/TicketDetailModal";
 import ApprovalModal from "../components/ApprovalModal";
@@ -12,6 +12,7 @@ import { getLoggedInUser } from "../utils/auth";
 
 const Dashboard = () => {
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [collections, setCollections] = useState<Collection[]>([]);
   const [statuses, setStatuses] = useState<TicketStatus[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -37,13 +38,15 @@ const Dashboard = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [tReq, sReq, uReq, rReq] = await Promise.allSettled([
+      const [tReq, sReq, uReq, rReq, cReq] = await Promise.allSettled([
         api.get("/tickets"),
         api.get("/tickets/statuses"),
         api.get("/users"),
         api.get("/users/roles"),
+        api.get("/collections"),
       ]);
       if (tReq.status === "fulfilled") setTickets(Array.isArray(tReq.value.data) ? tReq.value.data : []);
+      if (cReq.status === "fulfilled") setCollections(Array.isArray(cReq.value.data) ? cReq.value.data : []);
       if (sReq.status === "fulfilled") setStatuses(Array.isArray(sReq.value.data) ? sReq.value.data : []);
       if (uReq.status === "fulfilled") setUsers(Array.isArray(uReq.value.data) ? uReq.value.data : []);
       if (rReq.status === "fulfilled") setRoles(Array.isArray(rReq.value.data) ? rReq.value.data : []);
@@ -171,7 +174,16 @@ const Dashboard = () => {
       (superAdminRoleId && String(currentUser.roleId).toLowerCase() === String(superAdminRoleId).toLowerCase()))
   );
 
-  const filteredTickets = tickets.filter((ticket: any) => {
+  const activeCollectionId = searchParams.get("collection");
+  const activeCollection = collections.find((c) => String(c.id) === String(activeCollectionId)) || null;
+
+  // Collection scope: when arriving from the Collections page, the whole
+  // dashboard (stats + list) reflects only that collection's tickets.
+  const scopedTickets = activeCollectionId
+    ? tickets.filter((t: any) => String(t.collectionId || "") === String(activeCollectionId))
+    : tickets;
+
+  const filteredTickets = scopedTickets.filter((ticket: any) => {
     const statusName = getStatusName(ticket);
     if (filterType === "assigned") {
       const assigneeId = ticket.assignee?.id || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to;
@@ -195,10 +207,10 @@ const Dashboard = () => {
   });
 
   const stats = [
-    { label: "Total tickets", value: tickets.length, icon: TicketIcon, color: "var(--accent)" },
-    { label: "Open", value: tickets.filter((t) => getStatusName(t) === "Open").length, icon: Inbox, color: "#0ea5e9" },
-    { label: "In progress", value: tickets.filter((t) => getStatusName(t) === "In Progress").length, icon: Clock, color: "#f59e0b" },
-    { label: "Resolved", value: tickets.filter((t) => ["Resolved", "Closed"].includes(getStatusName(t))).length, icon: CheckCircle, color: "#22c55e" },
+    { label: "Total tickets", value: scopedTickets.length, icon: TicketIcon, color: "var(--accent)" },
+    { label: "Open", value: scopedTickets.filter((t) => getStatusName(t) === "Open").length, icon: Inbox, color: "#0ea5e9" },
+    { label: "In progress", value: scopedTickets.filter((t) => getStatusName(t) === "In Progress").length, icon: Clock, color: "#f59e0b" },
+    { label: "Resolved", value: scopedTickets.filter((t) => ["Resolved", "Closed"].includes(getStatusName(t))).length, icon: CheckCircle, color: "#22c55e" },
   ];
 
   const tabs = [
@@ -212,8 +224,21 @@ const Dashboard = () => {
     <div className="p-6 md:p-8 max-w-7xl mx-auto" style={{ color: "var(--text)" }}>
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tickets</h1>
-          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>Track, triage, and resolve issues across your organization.</p>
+          {activeCollection && (
+            <Link
+              to="/collections?all=1"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold mb-1.5 transition hover:opacity-80"
+              style={{ color: "var(--accent)" }}
+            >
+              <FolderKanban className="h-3.5 w-3.5" /> Collections
+            </Link>
+          )}
+          <h1 className="text-2xl font-bold tracking-tight">{activeCollection ? activeCollection.name : "Tickets"}</h1>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            {activeCollection
+              ? activeCollection.description || "Track, triage, and resolve issues in this collection."
+              : "Track, triage, and resolve issues across your organization."}
+          </p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -319,6 +344,14 @@ const Dashboard = () => {
                   </span>
                 </div>
 
+                {!activeCollectionId && ticket.collectionName && (
+                  <div className="flex items-center gap-2 mb-2 -mt-1">
+                    <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
+                      <FolderKanban className="h-3 w-3" /> {ticket.collectionName}
+                    </span>
+                  </div>
+                )}
+
                 <h3 className="text-base font-semibold mb-1.5 line-clamp-1 transition-colors group-hover:text-[var(--accent)]">{ticket.title}</h3>
                 <p className="text-sm leading-relaxed line-clamp-2 mb-4 flex-grow" style={{ color: "var(--muted)" }}>{ticket.description}</p>
 
@@ -355,7 +388,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      <CreateTicketModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchData} />
+      <CreateTicketModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchData} collections={collections} defaultCollectionId={activeCollectionId || undefined} />
 
       {selectedTicket && (
         <TicketDetailModal
@@ -404,6 +437,7 @@ const Dashboard = () => {
           statuses={statuses}
           users={users}
           roles={roles}
+          collections={collections}
         />
       )}
 

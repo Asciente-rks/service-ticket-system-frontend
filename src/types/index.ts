@@ -31,6 +31,18 @@ export interface Ticket {
   priority: "Low" | "Medium" | "High";
   createdAt: string;
   userId: string;
+  collectionId?: string | null;
+  collectionName?: string | null;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  description: string | null;
+  ticketCount: number;
+  openCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TicketStatus {

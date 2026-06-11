@@ -18,7 +18,7 @@ const Onboarding = () => {
 
   const finish = (token: string) => {
     setToken(token);
-    navigate("/dashboard", { replace: true });
+    navigate("/collections", { replace: true });
   };
 
   const createOrg = async (e: React.FormEvent) => {

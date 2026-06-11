@@ -30,7 +30,7 @@ const Login = () => {
       });
       setToken(response.data.token);
       const user = getLoggedInUser();
-      navigate(user?.organizationId ? "/dashboard" : "/onboarding", { replace: true });
+      navigate(user?.organizationId ? "/collections" : "/onboarding", { replace: true });
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 429) setError("Too many login attempts. Please wait a moment.");

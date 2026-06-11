@@ -107,15 +107,34 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     if (ticketId) navigate(`/dashboard?ticketId=${ticketId}`);
   };
 
+  // Sticky project space: the last opened collection becomes a first-class
+  // sidebar entry, so switching tabs never forces re-picking a collection.
+  const activeCollection = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("activeCollection");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed?.id && parsed?.name ? { id: String(parsed.id), name: String(parsed.name) } : null;
+    } catch {
+      return null;
+    }
+    // location dep: re-read after navigation (e.g. entering another collection)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search]);
+
   const menuItems = useMemo(() => {
-    const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
+    const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [];
+    if (activeCollection) {
+      items.push({ name: activeCollection.name, path: `/dashboard?collection=${activeCollection.id}`, icon: Home });
+    }
+    items.push(
       { name: "Collections", path: "/collections?all=1", icon: FolderKanban },
       { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
       { name: "AI Assistant", path: "/ai", icon: Sparkles },
-    ];
+    );
     if (isAdmin) items.push({ name: "Team", path: "/users", icon: Users });
     return items;
-  }, [isAdmin, dmUnread]);
+  }, [isAdmin, dmUnread, activeCollection]);
 
   const roleName = roles.find((r) => String(r.id).toLowerCase() === String(user?.roleId).toLowerCase())?.name || "Member";
 
@@ -140,7 +159,12 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         <nav className="flex-1 px-3 pt-3 space-y-1.5">
           {menuItems.map((item) => {
             const basePath = item.path.split("?")[0];
-            const isActive = location.pathname === basePath || (basePath === "/collections" && location.pathname === "/dashboard");
+            const isActive =
+              basePath === "/dashboard"
+                ? location.pathname === "/dashboard"
+                : basePath === "/collections"
+                  ? location.pathname === "/collections" || (location.pathname === "/dashboard" && !activeCollection)
+                  : location.pathname === basePath;
             const Icon = item.icon;
             return (
               <Link

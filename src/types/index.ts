@@ -114,6 +114,7 @@ export interface AiTicketRef {
 export interface AiConversation {
   id: string;
   title: string;
+  collectionId?: string | null;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
   createdAt: string;
@@ -122,6 +123,7 @@ export interface AiConversation {
 
 export interface AiDuplicateGroup {
   reason: string;
+  confidence?: "high" | "medium";
   tickets: AiTicketRef[];
 }
 

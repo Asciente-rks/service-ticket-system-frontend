@@ -69,9 +69,20 @@ const CollectionsPage = () => {
     navigate(`/dashboard?collection=${c.id}`, { replace });
   };
 
-  // Single collection → straight into its dashboard (unless browsing via ?all=1).
+  // Skip the picker whenever we already know where the user works (unless
+  // browsing via ?all=1): re-enter their last collection, or the only one.
   useEffect(() => {
-    if (!loading && !showAll && collections.length === 1) {
+    if (loading || showAll || collections.length === 0) return;
+    let saved: { id?: string } | null = null;
+    try {
+      saved = JSON.parse(localStorage.getItem("activeCollection") || "null");
+    } catch {
+      saved = null;
+    }
+    const remembered = saved?.id ? collections.find((c) => String(c.id) === String(saved!.id)) : undefined;
+    if (remembered) {
+      enterCollection(remembered, true);
+    } else if (collections.length === 1) {
       enterCollection(collections[0], true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

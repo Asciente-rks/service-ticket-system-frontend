@@ -86,18 +86,25 @@ const AiChatPage = () => {
     [conversations, selectedId],
   );
 
+  // Chats are scoped per collection — collection 1's history never shows in
+  // collection 2 (org-wide chats live under the cleared scope).
   const fetchConversations = useCallback(async () => {
     try {
-      const res = await api.get("/ai/conversations");
+      const res = await api.get(
+        aiScope ? `/ai/conversations?collectionId=${aiScope.id}` : "/ai/conversations",
+      );
       setConversations(Array.isArray(res.data) ? res.data : []);
     } catch {
       /* keep prior list */
     } finally {
       setLoadingList(false);
     }
-  }, []);
+  }, [aiScope]);
 
   useEffect(() => {
+    setLoadingList(true);
+    setSelectedId(null);
+    setMessages([]);
     fetchConversations();
   }, [fetchConversations]);
 
@@ -150,7 +157,7 @@ const AiChatPage = () => {
   const newConversation = async () => {
     setError("");
     try {
-      const res = await api.post("/ai/conversations", {});
+      const res = await api.post("/ai/conversations", aiScope ? { collectionId: aiScope.id } : {});
       const convo: AiConversation = res.data;
       setConversations((prev) => [convo, ...prev]);
       setSelectedId(convo.id);
@@ -173,7 +180,7 @@ const AiChatPage = () => {
     let convoId = selectedId;
     if (!convoId) {
       try {
-        const res = await api.post("/ai/conversations", {});
+        const res = await api.post("/ai/conversations", aiScope ? { collectionId: aiScope.id } : {});
         const convo: AiConversation = res.data;
         setConversations((prev) => [convo, ...prev]);
         setSelectedId(convo.id);
@@ -285,8 +292,14 @@ const AiChatPage = () => {
       >
         <div className="p-4 border-b" style={{ borderColor: "var(--border)" }}>
           <div className="flex items-center justify-between mb-3">
-            <h1 className="flex items-center gap-2 text-lg font-bold tracking-tight">
-              <Sparkles className="h-5 w-5" style={{ color: "var(--accent)" }} /> AI Assistant
+            <h1 className="flex min-w-0 items-center gap-2 text-lg font-bold tracking-tight">
+              <Sparkles className="h-5 w-5 shrink-0" style={{ color: "var(--accent)" }} />
+              <span className="truncate">AI Assistant</span>
+              {aiScope && (
+                <span className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
+                  {aiScope.name}
+                </span>
+              )}
             </h1>
             <button onClick={newConversation} className="btn btn-primary h-9 px-3 text-sm font-semibold">
               <Plus className="h-4 w-4" /> New

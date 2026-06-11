@@ -76,6 +76,18 @@ const DuplicateReviewCard = ({ groups, onTicketDeleted }: Props) => {
               <p className="text-xs font-bold uppercase tracking-wider" style={{ color: resolved ? "#047857" : "#b45309" }}>
                 {resolved ? `Group ${gi + 1} — resolved` : `Duplicate group ${gi + 1} — choose an action`}
               </p>
+              {!resolved && group.confidence && (
+                <span
+                  className="ml-auto shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+                  style={
+                    group.confidence === "high"
+                      ? { backgroundColor: "rgba(239,68,68,0.12)", color: "#dc2626" }
+                      : { backgroundColor: "rgba(245,158,11,0.15)", color: "#b45309" }
+                  }
+                >
+                  {group.confidence === "high" ? "High match" : "Possible match"}
+                </span>
+              )}
             </div>
 
             <div className="space-y-2 p-3" style={{ backgroundColor: "var(--bg)" }}>

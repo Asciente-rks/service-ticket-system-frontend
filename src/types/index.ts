@@ -119,12 +119,22 @@ export interface AiConversation {
   updatedAt: string;
 }
 
+export interface AiDuplicateGroup {
+  reason: string;
+  tickets: AiTicketRef[];
+}
+
 export interface AiMessage {
   id: string;
   conversationId: string;
   role: "user" | "assistant";
   body: string;
   ticketRefs: AiTicketRef[];
-  meta: { provider?: string; model?: string; error?: boolean } | null;
+  meta: {
+    provider?: string;
+    model?: string;
+    error?: boolean;
+    duplicateGroups?: AiDuplicateGroup[];
+  } | null;
   createdAt: string;
 }

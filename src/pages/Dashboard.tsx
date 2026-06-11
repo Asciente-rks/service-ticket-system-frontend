@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
-import { useSearchParams, Link } from "react-router-dom";
-import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Trash2, Plus, Ticket as TicketIcon, FolderKanban } from "lucide-react";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
+import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Trash2, Plus, Ticket as TicketIcon, FolderKanban, Sparkles, X } from "lucide-react";
 import api from "../services/api";
-import type { Ticket, TicketStatus, User, Role, Collection } from "../types";
+import type { Ticket, TicketStatus, User, Role, Collection, AiDuplicateGroup } from "../types";
 import CreateTicketModal from "../components/CreateTicketModal";
 import TicketDetailModal from "../components/TicketDetailModal";
 import ApprovalModal from "../components/ApprovalModal";
@@ -26,6 +26,10 @@ const Dashboard = () => {
   const [deleteError, setDeleteError] = useState("");
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const [dupGroups, setDupGroups] = useState<AiDuplicateGroup[]>([]);
+  const [dupDismissed, setDupDismissed] = useState(false);
 
   const [filterType, setFilterType] = useState<"all" | "assigned" | "reported" | "closed">("all");
   const [prioritySort, setPrioritySort] = useState<string>("All");
@@ -79,6 +83,32 @@ const Dashboard = () => {
       setIsDeleting(false);
     }
   };
+
+  // AI duplicate detection for the active collection (cached server-side).
+  const collectionParamForDup = searchParams.get("collection");
+  useEffect(() => {
+    setDupGroups([]);
+    if (!collectionParamForDup) return;
+    setDupDismissed(sessionStorage.getItem(`dupDismissed:${collectionParamForDup}`) === "1");
+
+    let active = true;
+    api
+      .get(`/ai/duplicates?collectionId=${collectionParamForDup}`)
+      .then((res) => {
+        if (active && Array.isArray(res.data?.groups)) setDupGroups(res.data.groups);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [collectionParamForDup, tickets.length]);
+
+  const dismissDuplicates = () => {
+    setDupDismissed(true);
+    if (collectionParamForDup) sessionStorage.setItem(`dupDismissed:${collectionParamForDup}`, "1");
+  };
+
+  const dupTicketTotal = dupGroups.reduce((n, g) => n + g.tickets.length, 0);
 
   // Open a ticket when arriving via ?ticketId=... (e.g. clicking a notification).
   // Tries the already-loaded list first, then falls back to fetching the single
@@ -247,6 +277,46 @@ const Dashboard = () => {
           <Plus className="h-4 w-4" /> New ticket
         </button>
       </header>
+
+      {/* AI duplicate detection notice (per collection) */}
+      {activeCollectionId && dupGroups.length > 0 && !dupDismissed && (
+        <div
+          className="mb-6 flex flex-col gap-3 rounded-2xl border px-4 py-3.5 sm:flex-row sm:items-center"
+          style={{ borderColor: "rgba(245,158,11,0.45)", backgroundColor: "rgba(245,158,11,0.08)" }}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: "rgba(245,158,11,0.15)", color: "#f59e0b" }}>
+            <Sparkles className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold" style={{ color: "var(--text)" }}>
+              AI detected {dupGroups.length} potential duplicate {dupGroups.length === 1 ? "group" : "groups"} ({dupTicketTotal} tickets) in this collection
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--muted)" }}>
+              Review them with the AI assistant — confirm and clean up duplicates, or keep them for later.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={() =>
+                navigate(
+                  `/ai?dupCollection=${activeCollectionId}&dupName=${encodeURIComponent(activeCollection?.name || "")}`,
+                )
+              }
+              className="btn btn-primary h-9 px-4 text-xs font-bold"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> Verify with AI
+            </button>
+            <button
+              onClick={dismissDuplicates}
+              className="grid h-9 w-9 place-items-center rounded-lg transition hover:bg-[var(--accent-soft)]"
+              style={{ color: "var(--muted)" }}
+              title="Dismiss for this session"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

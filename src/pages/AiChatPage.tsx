@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Send,
   Plus,
@@ -13,6 +14,7 @@ import {
 import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
 import AiMessageBody from "../components/AiMessageBody";
+import DuplicateReviewCard from "../components/DuplicateReviewCard";
 import type { AiConversation, AiMessage } from "../types";
 
 // All times displayed in Philippine time (the system's user base).
@@ -47,6 +49,7 @@ const AiAvatar = ({ size = 34 }: { size?: number }) => (
 );
 
 const AiChatPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [search, setSearch] = useState("");
@@ -84,6 +87,22 @@ const AiChatPage = () => {
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  // Arriving from the dashboard's duplicate banner (?dupCollection & dupName):
+  // open a fresh chat and immediately run the duplicate review.
+  const dupAutoRan = useRef(false);
+  useEffect(() => {
+    const dupCollection = searchParams.get("dupCollection");
+    if (!dupCollection || dupAutoRan.current) return;
+    dupAutoRan.current = true;
+    const dupName = searchParams.get("dupName") || "";
+    setSearchParams({}, { replace: true });
+    const scope = dupName ? ` in the "${dupName}" collection` : "";
+    send(
+      `Review potential duplicate tickets${scope}. Show each duplicate group with the tickets involved and why they look like duplicates, so I can decide what to delete or keep.`,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -431,7 +450,15 @@ const AiChatPage = () => {
                         {mine ? (
                           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
                         ) : (
-                          <AiMessageBody body={m.body} ticketRefs={m.ticketRefs} />
+                          <>
+                            <AiMessageBody body={m.body} ticketRefs={m.ticketRefs} />
+                            {!!m.meta?.duplicateGroups?.length && (
+                              <DuplicateReviewCard
+                                groups={m.meta.duplicateGroups}
+                                onKeepAll={() => send("Keep everything for now — I'll review the duplicates later.")}
+                              />
+                            )}
+                          </>
                         )}
                         <span className="mt-1 block text-[10px]" style={{ color: mine ? "rgba(255,255,255,0.7)" : "var(--muted)" }}>
                           {timeShort(m.createdAt)}

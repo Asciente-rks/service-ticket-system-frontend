@@ -59,11 +59,33 @@ const readActiveCollection = (): { id: string; name: string } | null => {
   }
 };
 
+/**
+ * Initial AI scope. When the page is opened from the dashboard's duplicate
+ * banner (?dupCollection=...), that collection is authoritative — it is the
+ * exact scope the banner ran detection against, so the "Verify with AI" chat
+ * must analyze the SAME ticket set. Falling back to the last-active collection
+ * (localStorage) for normal visits. Reading the URL synchronously here avoids
+ * a scope mismatch where the chat would otherwise check a different (or
+ * org-wide) scope and wrongly report "all clear".
+ */
+const readInitialAiScope = (): { id: string; name: string } | null => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const dupCollection = params.get("dupCollection");
+    if (dupCollection) {
+      return { id: dupCollection, name: params.get("dupName") || "" };
+    }
+  } catch {
+    /* ignore */
+  }
+  return readActiveCollection();
+};
+
 const AiChatPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   // The user's active collection (their current project space) scopes the AI.
-  const [aiScope, setAiScope] = useState<{ id: string; name: string } | null>(readActiveCollection);
+  const [aiScope, setAiScope] = useState<{ id: string; name: string } | null>(readInitialAiScope);
   const [loadingList, setLoadingList] = useState(true);
   const [search, setSearch] = useState("");
 
@@ -117,9 +139,16 @@ const AiChatPage = () => {
     dupAutoRan.current = true;
     const dupName = searchParams.get("dupName") || "";
     setSearchParams({}, { replace: true });
-    const scope = dupName ? ` in the "${dupName}" collection` : "";
+    // Pin this verification to the EXACT collection the banner analyzed so the
+    // chat checks the same ticket set (prevents the contradictory "all clear").
+    // aiScope was already initialized from the same URL param (readInitialAiScope),
+    // so the header/badge and any re-checks share this scope; we also pass it
+    // explicitly to send() as the authoritative request scope.
+    const dupScope = { id: dupCollection, name: dupName };
+    const scopeText = dupName ? ` in the "${dupName}" collection` : "";
     send(
-      `Review potential duplicate tickets${scope}. Show each duplicate group with the tickets involved and why they look like duplicates, so I can decide what to delete or keep.`,
+      `Review potential duplicate tickets${scopeText}. Show each duplicate group with the tickets involved and why they look like duplicates, so I can decide what to delete or keep.`,
+      dupScope,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -168,9 +197,13 @@ const AiChatPage = () => {
     }
   };
 
-  const send = async (text?: string) => {
+  const send = async (text?: string, scopeOverride?: { id: string; name: string } | null) => {
     const body = (text ?? draft).trim();
     if (!body || sending) return;
+
+    // Explicit scope wins (e.g. the duplicate-review flow pins the chat to the
+    // exact collection the banner flagged); otherwise use the active scope.
+    const scope = scopeOverride !== undefined ? scopeOverride : aiScope;
 
     setError("");
     setSending(true);
@@ -180,7 +213,7 @@ const AiChatPage = () => {
     let convoId = selectedId;
     if (!convoId) {
       try {
-        const res = await api.post("/ai/conversations", aiScope ? { collectionId: aiScope.id } : {});
+        const res = await api.post("/ai/conversations", scope ? { collectionId: scope.id } : {});
         const convo: AiConversation = res.data;
         setConversations((prev) => [convo, ...prev]);
         setSelectedId(convo.id);
@@ -211,7 +244,7 @@ const AiChatPage = () => {
     try {
       const res = await api.post(`/ai/conversations/${convoId}/messages`, {
         body,
-        ...(aiScope ? { collectionId: aiScope.id } : {}),
+        ...(scope ? { collectionId: scope.id } : {}),
       });
       const { userMessage, assistantMessage, conversation } = res.data || {};
       setMessages((prev) => {

@@ -1,18 +1,16 @@
-# Service Ticket System — Frontend
+# NexusTrack — Frontend (service-ticket-system-frontend)
 
-> Internal IT/QA ticketing SPA — testers report defects, developers fix them, admins triage, and approvers sign off before tickets close. Built on React 19 + Vite 8 + Tailwind 4, deployed on Vercel at no cost.
+> Multi-tenant QA/defect tracking SPA. Pick a **Collection** (project space), then triage a six-status ticket workflow with **multiple assignees**, **per-collection platform/version tagging**, threaded discussion, teammate DMs, and a built-in **AI assistant** (conversational queries + duplicate review) — all near-real-time. Built on React 19 + Vite 8 + Tailwind 4, deployed free on Vercel.
 
-This repository is the **web client** half of the Service Ticket System. It is a single-page application that drives a four-role ticket workflow (`SUPER_ADMIN`, `ADMIN`, `TESTER`, `DEVELOPER`) with six lifecycle statuses, per-ticket approval/rejection, granular per-user notification settings, and role-scoped views. The companion REST API lives in [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system).
+This is the **web client** for NexusTrack. The companion REST API (Express 4 on AWS Lambda + TiDB Cloud) lives in [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system).
 
 ---
 
 ## Live Demo
 
 - **Live app:** https://service-ticket-system-frontend.vercel.app/login
-- **Backend:** Render Web Service (`service-ticket-system-backend.onrender.com`)
-- **Try the Dev Tools panel:** click the floating wrench button on the login page for one-click sign-in as Admin, Developer, or Tester.
-
-> The Render backend may take 10–15 seconds to wake on the first request (free-tier cold start). Subsequent requests are warm.
+- **Backend:** AWS Lambda (Function URL), consumed via `axios` using `VITE_API_URL`.
+- **Try it:** use the demo accounts on the login page (Admin / Developer / Tester quick-login), or register a new account and create your own organization.
 
 ---
 
@@ -20,33 +18,33 @@ This repository is the **web client** half of the Service Ticket System. It is a
 
 1. [What It Does](#what-it-does)
 2. [Architecture](#architecture)
-3. [Routing Map](#routing-map)
-4. [Component Tree](#component-tree)
-5. [State & Auth](#state--auth)
-6. [API Client](#api-client)
-7. [Role Hierarchy](#role-hierarchy)
-8. [Ticket Lifecycle](#ticket-lifecycle)
-9. [Tech Stack](#tech-stack)
-10. [Repository Layout](#repository-layout)
-11. [Deployment & Environment Variables](#deployment--environment-variables)
-12. [Cost Breakdown](#cost-breakdown)
-13. [Local Development](#local-development)
-14. [Repos](#repos)
-15. [Author](#author)
+3. [Navigation Model — Collections first](#navigation-model--collections-first)
+4. [Routing Map](#routing-map)
+5. [Component Tree](#component-tree)
+6. [State, Auth & Real-time](#state-auth--real-time)
+7. [Tech Stack](#tech-stack)
+8. [Repository Layout](#repository-layout)
+9. [Deployment & Environment Variables](#deployment--environment-variables)
+10. [Cost Breakdown](#cost-breakdown)
+11. [Local Development](#local-development)
+12. [Repos](#repos)
+13. [Author](#author)
 
 ---
 
 ## What It Does
 
-- **Submit tickets** with title, description, priority (`LOW / MEDIUM / HIGH / CRITICAL`), and optional initial assignee.
-- **Six-status lifecycle** — `OPEN → IN_PROGRESS → READY_FOR_QA → RESOLVED / ERROR_PERSISTS → CLOSED` — with role-gated transitions enforced client-side and server-side.
-- **Approval workflow** — once a ticket reaches `READY_FOR_QA`, an approver issues `Approved` (with optional comment) to advance to `RESOLVED`, or `Rejected` to bounce back.
-- **Role-scoped views** — the same `Dashboard.tsx` surface adapts based on the decoded JWT: super-admins see all tickets and users, admins triage and assign, testers see only what they reported, developers see their assignments.
-- **In-app notifications** — real-time-style panel with per-message read state; per-user toggles for which events fire (`notify_assigned_ticket`, `notify_ticket_approved`, `notify_ticket_rejected`, `notify_reported_ticket_updated`).
-- **User management** — admins and higher can create / edit / delete users; role hierarchy is enforced (admins cannot see or alter other admins / superadmin).
-- **Dark / light theme** — `ThemeProvider` in `theme.tsx` injects CSS tokens; toggled from the settings panel.
-- **Bundle hardening** — production builds disable source maps, use content-hash filenames, replace `console.*` with no-ops, and disable the React DevTools global hook via `src/utils/security.ts`.
-- **Dev Tools quick-login** — floating panel on `/login` prefills and submits the real `/auth/login` endpoint as Admin, Developer, or Tester — no typing required for portfolio reviewers.
+- **Email-OTP onboarding** — register → verify code → set password, then create an organization or join one via invite code (`Register`, `ForgotPassword`, `Onboarding`).
+- **Collections as the workspace gate** — after login the user lands on the Collections picker; choosing one scopes the dashboard, the AI assistant, and the platform/version catalog. A collection switcher lives in the sidebar header.
+- **Per-collection dashboard** — KPI cards, filter/sort, an AI **duplicate-detection banner**, and ticket cards showing status, priority, assignees and platform/version.
+- **Multiple assignees** — a searchable multi-select (`AssigneeMultiSelect`) with chips and a "primary" badge, on both create and edit.
+- **Platform/version tagging** — a searchable multi-select (`PlatformVersionMultiSelect`) drawn from the collection's catalog; admins manage the catalog from the Collections page (`PlatformVersionsManager`).
+- **Six-status lifecycle + approvals** — role-gated status transitions; approvers approve/reject with an audit comment (`ApprovalModal`).
+- **Threaded discussion + timeline** — nested comments and an activity timeline that poll for near-real-time updates (`TicketActivity`).
+- **In-ticket AI + AI chat** — ask the assistant about one ticket (`TicketAiAssistant`), or use the full AI chat page for org/collection-wide questions and **duplicate review**. Ticket links open in an overlay (`TicketQuickView`) so you never leave the conversation.
+- **Direct messaging** — 1:1 teammate conversations that poll for new messages (`ConversationsPage`, `DmMessageBody`).
+- **Near-real-time** — the dashboard refetches on an interval + window focus and reconciles the open ticket after any change, so create/edit/delete show up within seconds without a manual refresh.
+- **Dark / light theme**, role-aware nav, and production bundle hardening (no source maps, content-hash filenames, neutered `console.*` / React DevTools hook via `utils/security.ts`).
 
 ---
 
@@ -54,66 +52,69 @@ This repository is the **web client** half of the Service Ticket System. It is a
 
 ```mermaid
 flowchart TB
-    Browser["Browser SPA\nReact 19 · Vite 8 · Tailwind 4\nreact-router-dom 7 · jwt-decode"]
-    Vercel["Vercel Hobby\nGlobal CDN · free SSL\nauto-deploy on push"]
-    Express["Express 4 REST API\nservice-ticket-system\nhelmet · CORS · Sequelize 6"]
-    MySQL[("MySQL\nfree-tier hosted\nAiven · FreeSQLDatabase")]
-    Cron["node-cron\nSLA reminders\nstale-ticket scan"]
+    Browser["Browser SPA · Vercel<br/>React 19 · Vite 8 · Tailwind 4<br/>react-router 7 · jwt-decode · axios"]
+    Vercel["Vercel Hobby<br/>global CDN · free SSL · auto-deploy"]
+    URL["Lambda Function URL<br/>(VITE_API_URL)"]
+    API["Express 4 on AWS Lambda<br/>service-ticket-system<br/>Sequelize 6 · TiDB (MySQL)"]
+    AI["Groq → Gemini<br/>AI assistant + duplicate detection"]
 
-    Browser -->|"REST + JWT (Bearer)\naxios + interceptor"| Express
+    Browser -->|REST + JWT (Bearer) · axios interceptor| URL
+    URL --> API
+    API --> AI
     Browser -.deployed on.-> Vercel
-    Express --> MySQL
-    Express -.in-process.-> Cron
-    Cron --> MySQL
 
     classDef edge fill:#0f1422,stroke:#5eead4,color:#e2e8f0
-    classDef store fill:#0a0e1a,stroke:#5eead4,color:#5eead4
     classDef host fill:#0a1420,stroke:#38bdf8,color:#bae6fd
-    class Browser,Express,Cron edge
-    class MySQL store
-    class Vercel host
+    class Browser,API,AI edge
+    class Vercel,URL host
 ```
 
-### Notable architectural choices
+### Notable choices
 
-- **Axios instance with a request interceptor** (`src/services/api.ts`) — a single `axios.create({ baseURL: VITE_API_URL })` instance auto-injects the JWT from `localStorage` on every outbound request. No per-call auth plumbing anywhere in the codebase.
-- **`jwt-decode` for client-side role awareness** — the raw JWT is decoded in `src/utils/auth.ts` to extract the role string. No second network round-trip needed to decide which nav items and actions to render.
-- **`ThemeProvider`** wraps the entire tree in `App.tsx` before the router, so every component can read the theme context without prop drilling.
-- **Modal-centric UX** — heavy lifting happens in `CreateTicketModal`, `EditTicketModal`, `TicketDetailModal`, and `ApprovalModal` rather than in separate routes. The `Dashboard` page renders the list and portals the active modal.
-- **`ProtectedRoute`** — thin wrapper that reads the decoded token from localStorage; if absent or expired, redirects to `/login`. No server round-trip on navigation.
-- **`vercel.json` proxy + SPA fallback** — `/api/*` is reverse-proxied to the Render backend URL at the CDN edge (eliminates CORS on cross-origin XHR during production). All other paths fall back to `/index.html` for client-side routing.
+- **Single axios instance + interceptor** (`services/api.ts`) — injects the JWT from `localStorage` on every request; on `401` it clears the session and routes to `/login`, and on `403 { code: "NO_ORGANIZATION" }` it routes to `/onboarding`.
+- **Client-side role awareness** — `jwt-decode` reads role/org from the token (`utils/auth.ts`); nav items and actions render accordingly, but the server is always the source of truth.
+- **Modal-centric UX** — most work happens in modals (`CreateTicketModal`, `EditTicketModal`, `TicketDetailModal`, `ApprovalModal`, `TicketQuickView`, `PlatformVersionsManager`) portalled over the active page.
+- **Reusable ticket overlay** — `TicketQuickView` fetches a ticket and renders its full detail (with edit/approve/delete) as an overlay, so opening a ticket from the AI chat never navigates away.
+- **Near-real-time via polling** — no websockets; the dashboard, ticket activity, and DM pages poll on short intervals + window focus, and list responses are served `no-store`.
+
+---
+
+## Navigation Model — Collections first
+
+```mermaid
+flowchart LR
+    login["/login → /collections"] --> pick["Collections picker"]
+    pick --> dash["/dashboard?collection=…<br/>scoped board"]
+    pick --> ai["/ai<br/>scoped AI assistant"]
+    sidebar["Sidebar switcher"] -.switch collection.-> pick
+    dash --> conv["/conversations · DMs"]
+    dash --> team["/users · Team (admin)"]
+
+    classDef tier fill:#0f1422,stroke:#5eead4,color:#e2e8f0
+    classDef flow fill:#1f0f22,stroke:#a978ff,color:#e2c8ff
+    class login,pick,dash tier
+    class ai,sidebar,conv,team flow
+```
+
+Collections are the high-level workspace: removed from the sidebar nav as a peer item and promoted to the post-login gate plus a sidebar-header switcher. Everything inside (dashboard, AI chats, platform/version catalog) is scoped to the active collection.
 
 ---
 
 ## Routing Map
 
-```mermaid
-flowchart LR
-    Root["/"] -->|Navigate| Login["/login\nLogin.tsx"]
+| Path | Component | Guard | Notes |
+|------|-----------|-------|-------|
+| `/login` `/register` `/forgot-password` | `Login` / `Register` / `ForgotPassword` | public | Email-OTP onboarding |
+| `/onboarding` | `Onboarding` | auth (no org) | Create or join an organization |
+| `/collections` | `CollectionsPage` | auth + org | Post-login gate + admin catalog management |
+| `/dashboard` | `Dashboard` | auth + org | Per-collection board (`?collection=`) |
+| `/ai` | `AiChatPage` | auth + org | Conversational assistant + duplicate review |
+| `/conversations` | `ConversationsPage` | auth + org | Teammate DMs |
+| `/users` | `UserManagement` | auth + org (admin) | Team management |
+| `/notifications` | `NotificationsPage` | auth + org | Notification center |
+| `/profile` `/settings` | `ProfilePage` / `Settings` | auth + org | Self-service |
 
-    Login -->|"JWT issued\n(any role)"| Dashboard["/dashboard\nDashboard.tsx"]
-    Login -->|"JWT issued\n(any role)"| Users["/users\nUserManagement.tsx"]
-    Login -->|"JWT issued\n(any role)"| Notifs["/notifications\nNotificationsPage.tsx"]
-    Login -->|"JWT issued\n(any role)"| Profile["/profile\nProfilePage.tsx"]
-    Login -->|"JWT issued\n(any role)"| Settings["/settings\nSettings.tsx"]
-
-    Dashboard --> PR1["ProtectedRoute\nguard"]
-    Users --> PR2["ProtectedRoute\nguard"]
-    Notifs --> PR3["ProtectedRoute\nguard"]
-    Profile --> PR4["ProtectedRoute\nguard"]
-    Settings --> PR5["ProtectedRoute\nguard"]
-
-    PR1 & PR2 & PR3 & PR4 & PR5 --> Layout["Layout.tsx\ntop bar + side nav"]
-
-    classDef page fill:#0f1422,stroke:#5eead4,color:#e2e8f0
-    classDef guard fill:#1a1222,stroke:#a978ff,color:#e2c8ff
-    classDef shell fill:#0a1420,stroke:#38bdf8,color:#bae6fd
-    class Login,Dashboard,Users,Notifs,Profile,Settings page
-    class PR1,PR2,PR3,PR4,PR5 guard
-    class Layout,Root shell
-```
-
-All protected routes are wrapped in `<ThemeProvider><Router>` at the top level (`App.tsx`). `ProtectedRoute` checks for a valid JWT in localStorage synchronously; missing or expired tokens redirect to `/login` before the target component mounts.
+All protected routes are wrapped by `ProtectedRoute` (synchronous JWT check) inside `Layout`, under a top-level `ThemeProvider` + `BrowserRouter` (`App.tsx`).
 
 ---
 
@@ -121,175 +122,54 @@ All protected routes are wrapped in `<ThemeProvider><Router>` at the top level (
 
 ```mermaid
 flowchart TB
-    App["App.tsx\nThemeProvider · BrowserRouter · Routes"]
+    App["App.tsx · ThemeProvider · Router · Routes"]
+    App --> Layout["Layout.tsx · sidebar (collection switcher) + header (clickable logo)"]
+    Layout --> Collections["CollectionsPage · pick / manage + PlatformVersionsManager"]
+    Layout --> Dash["Dashboard · scoped board, polling, duplicate banner"]
+    Layout --> Ai["AiChatPage · chat + DuplicateReviewCard + TicketQuickView"]
+    Layout --> Conv["ConversationsPage · DMs"]
+    Layout --> Team["UserManagement"]
 
-    App --> LoginPage["Login.tsx\nform + Dev Tools panel"]
-    App --> LayoutShell["Layout.tsx\ntop bar + sidebar nav"]
+    Dash --> CT["CreateTicketModal"]
+    Dash --> ET["EditTicketModal"]
+    Dash --> TD["TicketDetailModal → TicketActivity · TicketAiAssistant"]
+    CT --> AMS["AssigneeMultiSelect"]
+    CT --> PVM["PlatformVersionMultiSelect"]
+    ET --> AMS
+    ET --> PVM
+    Ai --> AMB["AiMessageBody (ticket chips)"]
 
-    LayoutShell --> DashPage["Dashboard.tsx\n~25 KB · lists + filters"]
-    LayoutShell --> UsersPage["UserManagement.tsx"]
-    LayoutShell --> NotifsPage["NotificationsPage.tsx"]
-    LayoutShell --> ProfilePage["ProfilePage.tsx"]
-    LayoutShell --> SettingsComp["Settings.tsx"]
-
-    DashPage --> CTModal["CreateTicketModal.tsx\n~16 KB"]
-    DashPage --> ETModal["EditTicketModal.tsx\n~16 KB"]
-    DashPage --> TDModal["TicketDetailModal.tsx"]
-    DashPage --> AModal["ApprovalModal.tsx"]
-
-    UsersPage --> CUModal["CreateUserModal.tsx"]
-    UsersPage --> EUModal["EditUserModal.tsx"]
-
+    classDef shell fill:#0a1420,stroke:#38bdf8,color:#bae6fd
     classDef page fill:#0f1422,stroke:#5eead4,color:#e2e8f0
     classDef modal fill:#1a1520,stroke:#f97316,color:#fed7aa
-    classDef shell fill:#0a1420,stroke:#38bdf8,color:#bae6fd
-    class LoginPage,DashPage,UsersPage,NotifsPage,ProfilePage,SettingsComp page
-    class CTModal,ETModal,TDModal,AModal,CUModal,EUModal modal
-    class App,LayoutShell shell
+    class App,Layout shell
+    class Collections,Dash,Ai,Conv,Team page
+    class CT,ET,TD,AMS,PVM,AMB modal
 ```
-
-The `Dashboard.tsx` page is the most complex surface (~25 KB). It renders a filterable ticket list and conditionally portals one of four modals depending on the current user action. All modals receive a callback to refresh the list on save.
 
 ---
 
-## State & Auth
+## State, Auth & Real-time
 
-```mermaid
-flowchart LR
-    Login["POST /auth/login\n→ JWT"]
-    LS[("localStorage\n'token' key")]
-    Decode["jwt-decode\n→ { id, role, email }"]
-    Interceptor["axios interceptor\nAuthorization: Bearer ..."]
-    PR["ProtectedRoute\nchecks token presence"]
-    UI["Role-aware UI\nnav items · action buttons"]
-
-    Login -->|store| LS
-    LS -->|on app boot| Decode
-    Decode -->|drive| UI
-    LS -->|every request| Interceptor
-    LS -->|on route change| PR
-
-    classDef store fill:#0a0e1a,stroke:#5eead4,color:#5eead4
-    classDef action fill:#0f1422,stroke:#5eead4,color:#e2e8f0
-    class LS store
-    class Login,Decode,Interceptor,PR,UI action
-```
-
-There is no Redux or React Context for auth state. The JWT is stored in `localStorage` and read by:
-
-- `src/utils/auth.ts` — decodes the token and exposes role/id/email
-- `src/services/api.ts` — injects the token via axios interceptor
-- `src/components/ProtectedRoute.tsx` — guards every protected route
-- `Layout.tsx` — reads the role to show/hide nav items (e.g., User Management is admin+ only)
-
-Session ends by clearing `localStorage` and navigating to `/login`.
-
----
-
-## API Client
-
-```mermaid
-flowchart TB
-    Config["axios.create\nbaseURL: VITE_API_URL"]
-    Interceptor["request interceptor\ninjects Bearer token\nfrom localStorage"]
-    Proxy["vercel.json\n/api/* → Render backend\n(CDN-edge proxy)"]
-
-    Endpoints["Consumers\nDashboard · UserManagement\nNotificationsPage · ProfilePage\nSettings · Login"]
-
-    Config --> Interceptor
-    Interceptor --> Proxy
-    Proxy -->|"production"| Backend["Express 4 API\nservice-ticket-system"]
-    Interceptor -->|"local dev"| Backend
-
-    Endpoints --> Config
-
-    classDef infra fill:#0a1420,stroke:#38bdf8,color:#bae6fd
-    classDef logic fill:#0f1422,stroke:#5eead4,color:#e2e8f0
-    classDef store fill:#0a0e1a,stroke:#5eead4,color:#5eead4
-    class Config,Interceptor,Proxy infra
-    class Endpoints,Backend logic
-```
-
-`src/services/api.ts` is a thin module — ~10 lines:
-
-```ts
-import axios from "axios";
-
-const api = axios.create({ baseURL: import.meta.env.VITE_API_URL });
-
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
-
-export default api;
-```
-
-All pages import `api` and call the relevant path directly (e.g., `api.post("/auth/login", body)`). No generated client, no SDK.
-
----
-
-## Role Hierarchy
-
-```mermaid
-flowchart LR
-    super["SUPER_ADMIN\nsees all users + tickets\ncross-org reach"]
-    admin["ADMIN\ncreate/edit/delete\nDevelopers + Testers\ntriage tickets"]
-    dev["DEVELOPER\nassigned tickets\nstatus updates"]
-    tester["TESTER\nreport defects\nview own tickets"]
-
-    super -->|"manage + see"| admin
-    admin -->|"create / update / delete"| dev
-    admin -->|"create / update / delete"| tester
-    dev -.ticket workflow.-> tester
-
-    classDef tier fill:#0f1422,stroke:#5eead4,color:#e2e8f0
-    class super,admin,dev,tester tier
-```
-
-| Role | Created by | Sees in User Management | Ticket access |
-|------|------------|------------------------|---------------|
-| `SUPER_ADMIN` | Seed script | Everyone | All tickets |
-| `ADMIN` | SuperAdmin or Admin | Developers + Testers only | All tickets — triage, assign, close |
-| `DEVELOPER` | Admin or SuperAdmin | Own profile only | Assigned tickets |
-| `TESTER` | Admin or SuperAdmin | Own profile only | Reported tickets |
-
-Role hierarchy is enforced backend-side (`permissions.middleware.ts`, `role.utils.ts`). The SPA reads the decoded role from the JWT to conditionally render nav items and action buttons — it never trusts the client alone.
-
----
-
-## Ticket Lifecycle
-
-```mermaid
-stateDiagram-v2
-    [*] --> OPEN : Tester creates ticket
-    OPEN --> IN_PROGRESS : Developer picks up
-    IN_PROGRESS --> READY_FOR_QA : Developer marks complete
-    READY_FOR_QA --> RESOLVED : Approver approves\n(Approval row created)
-    READY_FOR_QA --> ERROR_PERSISTS : Approver rejects\n(Approval row created)
-    ERROR_PERSISTS --> IN_PROGRESS : Developer iterates
-    RESOLVED --> CLOSED : Admin closes
-    CLOSED --> [*]
-```
-
-Approval rows are immutable audit records — multiple approvals over a ticket's lifetime are all preserved. The `comment` field on each `Approval` becomes part of the permanent audit trail visible in `TicketDetailModal`.
+- **Auth** — JWT in `localStorage`, decoded by `utils/auth.ts`; `ProtectedRoute` guards routes; the axios interceptor handles `401`/`403` redirects.
+- **Active collection** — persisted in `localStorage` (`activeCollection`) and read from the `?collection=` param; it scopes the dashboard and the AI assistant.
+- **Real-time** — `Dashboard` polls `/tickets` (+ `/collections`) every few seconds and on window focus, refetches immediately after mutations, and reconciles the open `TicketDetailModal`; `TicketActivity` and `ConversationsPage` poll comments / messages on short cycles.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Framework | **React 19** + TypeScript 5 | Latest concurrent features, familiar ecosystem |
-| Build | **Vite 8** | Sub-second HMR, content-hash output |
-| Styling | **Tailwind CSS 4** + ThemeProvider | Latest engine, dark/light token system |
-| Routing | **react-router-dom 7** | Latest API, nested layouts |
-| HTTP | **axios** + request interceptor | JWT injection in one place; interceptors |
-| Auth | **jwt-decode 4** | Parse JWT client-side for role-aware UI |
-| Icons | **lucide-react** | Consistent, tree-shakable icon set |
-| Lint | ESLint 9 + typescript-eslint | Modern flat config |
-| Hosting | **Vercel Hobby** | Free CDN + SSL + auto-deploy + zero-config Vite detection |
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 19 + TypeScript 5 |
+| Build | Vite 8 (content-hash output, source maps off in prod) |
+| Styling | Tailwind CSS 4 + `ThemeProvider` (dark/light tokens) |
+| Routing | react-router-dom 7 |
+| HTTP | axios + request/response interceptors |
+| Auth | jwt-decode |
+| Icons | lucide-react |
+| Lint | ESLint 9 + typescript-eslint |
+| Hosting | Vercel Hobby (auto-deploy on push, global CDN, free SSL) |
 
 ---
 
@@ -297,77 +177,40 @@ Approval rows are immutable audit records — multiple approvals over a ticket's
 
 ```
 service-ticket-system-frontend/
-├── package.json                    # React 19, Vite 8, Tailwind 4
-├── eslint.config.js
-├── vite.config.ts                  # disables source maps in prod, content-hash filenames
-├── vercel.json                     # /api/* proxy → Render backend; SPA fallback
-├── tsconfig*.json                  # split app/node configs
-├── public/
-│   ├── favicon.svg
-│   └── icons.svg                   # SVG sprite sheet
-├── index.html
 └── src/
-    ├── App.tsx                     # ThemeProvider · BrowserRouter · Routes · ProtectedRoute
-    ├── main.tsx
-    ├── index.css                   # Tailwind directives + base tokens
-    ├── theme.tsx                   # ThemeProvider (dark/light context)
-    ├── assets/                     # Logo variants (dark, light, no-name)
-    ├── components/
-    │   ├── Layout.tsx              # Top bar + side nav shell (~15 KB)
-    │   ├── ProtectedRoute.tsx      # JWT presence guard → /login redirect
-    │   ├── Settings.tsx            # In-app settings panel
-    │   ├── CreateTicketModal.tsx   # ~16 KB — full form + validation
-    │   ├── EditTicketModal.tsx     # ~16 KB — status + assignee + priority
-    │   ├── TicketDetailModal.tsx   # Read view + approval history
-    │   ├── ApprovalModal.tsx       # Approve / Reject with comment
-    │   ├── CreateUserModal.tsx
-    │   └── EditUserModal.tsx
+    ├── App.tsx                     # ThemeProvider · Router · Routes · ProtectedRoute
+    ├── theme.tsx                   # dark/light context
+    ├── services/api.ts             # axios instance + JWT interceptor + 401/403 routing
     ├── pages/
-    │   ├── Login.tsx               # Form + Dev Tools quick-login panel
-    │   ├── Dashboard.tsx           # ~25 KB — filterable list, modal portal
-    │   ├── UserManagement.tsx      # Admin+ CRUD
-    │   ├── NotificationsPage.tsx
-    │   └── ProfilePage.tsx
-    ├── services/
-    │   └── api.ts                  # axios instance + JWT interceptor
-    ├── types/
-    │   └── index.ts                # Shared TypeScript types
-    └── utils/
-        ├── auth.ts                 # jwt-decode wrapper → role/id/email
-        ├── labelStyles.tsx         # Status / priority pill Tailwind classes
-        └── security.ts             # Prod: no-op console.*, disable React DevTools hook
+    │   ├── Login · Register · ForgotPassword · Onboarding
+    │   ├── CollectionsPage         # post-login gate + platform/version manager entry
+    │   ├── Dashboard               # scoped board, polling, duplicate banner
+    │   ├── AiChatPage              # AI assistant + duplicate review + ticket overlay
+    │   ├── ConversationsPage       # teammate DMs
+    │   ├── UserManagement · NotificationsPage · ProfilePage
+    ├── components/
+    │   ├── Layout · ProtectedRoute · Settings · ConfirmDialog
+    │   ├── CreateTicketModal · EditTicketModal · TicketDetailModal · ApprovalModal
+    │   ├── AssigneeMultiSelect · PlatformVersionMultiSelect · PlatformVersionsManager
+    │   ├── TicketQuickView · TicketActivity · TicketAiAssistant
+    │   ├── AiMessageBody · DuplicateReviewCard · DmMessageBody
+    │   ├── CreateUserModal · EditUserModal · ChangePasswordModal · PasswordConfirmModal · AuthShell
+    ├── types/index.ts              # shared types (Ticket, Collection, PlatformVersion, AI…)
+    └── utils/                      # auth · apiError · labelStyles · security
 ```
 
 ---
 
 ## Deployment & Environment Variables
 
-### Frontend — Vercel
-
-```bash
-# One-time setup in Vercel project settings:
-# VITE_API_URL = https://service-ticket-system-backend.onrender.com
-
-npm install
-npm run build    # → dist/
-```
-
-Vercel auto-detects Vite. The `vercel.json` handles two things:
-
-1. **`/api/*` proxy** — rewrites to the Render backend URL at the CDN edge, so axios calls `VITE_API_URL=/api` in production and avoids CORS.
-2. **SPA fallback** — all other paths rewrite to `/index.html` so client-side routes (e.g. `/dashboard`) survive a hard refresh.
-
-Assets under `/assets/*` are served with `Cache-Control: public, max-age=31536000, immutable` (one year) via content-hash filenames from Vite.
-
-### Environment variables
+Vercel auto-detects Vite and deploys on every push to `main`; `vercel.json` provides the SPA fallback so client routes survive a hard refresh.
 
 | Variable | Where | Purpose |
 |----------|-------|---------|
-| `VITE_API_URL` | Vercel project settings | Base URL for the axios instance |
-
-For local development, create `.env.local`:
+| `VITE_API_URL` | Vercel project settings | Base URL for axios — the backend's **Lambda Function URL** |
 
 ```env
+# .env.local for local development
 VITE_API_URL=http://localhost:3000
 ```
 
@@ -375,20 +218,12 @@ VITE_API_URL=http://localhost:3000
 
 ## Cost Breakdown
 
-Designed for **$0/month forever** — the entire frontend stack runs on free tiers with no expiry.
+**$0/month** — the SPA is fully static on a free tier.
 
 | Service | Free tier | We use | Headroom |
 |---------|-----------|--------|----------|
-| Vercel Hobby (SPA) | 100 GB bandwidth, unlimited deploys | <500 MB/mo | 99.5% |
-| GitHub (public repo) | Unlimited | Storage only | Unlimited |
-
-**Monthly total: $0/month**
-
-**Why Vercel for this SPA:**
-- Zero-config Vite detection — `npm run build` output is deployed as-is.
-- Global CDN + free SSL with no configuration.
-- Automatic deploys on every push to `main`.
-- Edge-level `/api/*` reverse proxy eliminates CORS without a dedicated middleware layer.
+| Vercel Hobby | 100 GB bandwidth, unlimited deploys | < 500 MB/mo | 99.5% |
+| GitHub (public repo) | unlimited | storage only | unlimited |
 
 ---
 
@@ -398,22 +233,20 @@ Designed for **$0/month forever** — the entire frontend stack runs on free tie
 git clone https://github.com/Asciente-rks/service-ticket-system-frontend.git
 cd service-ticket-system-frontend
 npm install
-npm run dev           # Vite HMR at :5173
-npm run lint          # ESLint 9 + typescript-eslint
+npm run dev           # Vite HMR at :5173 (point VITE_API_URL at the backend)
+npm run lint
 npm run build         # production bundle → dist/
-npm run preview       # serve dist/ locally
+npm run preview
 ```
-
-Point `VITE_API_URL` at the local backend (`http://localhost:3000`) while running the companion service. See [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system) for backend setup instructions.
 
 ---
 
 ## Repos
 
-| Repository | What it is | Stack |
-|------------|-----------|-------|
-| [`service-ticket-system-frontend`](https://github.com/Asciente-rks/service-ticket-system-frontend) | Web client (this repo) | React 19 + Vite 8 + Tailwind 4 |
-| [`service-ticket-system`](https://github.com/Asciente-rks/service-ticket-system) | REST API backend | Express 4 + Sequelize + MySQL + node-cron |
+| Repo | Stack | Link |
+|------|-------|------|
+| **service-ticket-system-frontend** (this repo) | React 19 + Vite 8 + Tailwind 4 | https://github.com/Asciente-rks/service-ticket-system-frontend |
+| **service-ticket-system** | Express 4 + Sequelize 6 + TiDB (MySQL) on AWS Lambda | https://github.com/Asciente-rks/service-ticket-system |
 
 ---
 

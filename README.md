@@ -58,7 +58,7 @@ flowchart TB
     API["Express 4 on AWS Lambda<br/>service-ticket-system<br/>Sequelize 6 · TiDB (MySQL)"]
     AI["Groq → Gemini<br/>AI assistant + duplicate detection"]
 
-    Browser -->|REST + JWT (Bearer) · axios interceptor| URL
+    Browser -->|REST + JWT Bearer · axios| URL
     URL --> API
     API --> AI
     Browser -.deployed on.-> Vercel

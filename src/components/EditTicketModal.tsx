@@ -6,7 +6,7 @@ import type { Ticket, TicketStatus, User, Role, PlatformVersion } from "../types
 import { getLoggedInUser } from "../utils/auth";
 import { getStatusMeta } from "../utils/labelStyles";
 import AssigneeMultiSelect from "./AssigneeMultiSelect";
-import PlatformVersionSelect from "./PlatformVersionSelect";
+import PlatformVersionMultiSelect from "./PlatformVersionMultiSelect";
 
 interface Props {
   isOpen: boolean;
@@ -39,7 +39,7 @@ const EditTicketModal = ({
     priority: "Medium",
     statusId: "",
     assigneeIds: [] as string[],
-    platformVersionId: null as string | null,
+    platformVersionIds: [] as string[],
   });
   const dropdownGroupRef = useRef<HTMLDivElement>(null);
 
@@ -77,6 +77,16 @@ const EditTicketModal = ({
         if (single) assigneeIds = [single];
       }
 
+      // Prefer the full platform/version set; fall back to the legacy single value.
+      const pvObjs = (ticket as any).platformVersions as { id: string }[] | undefined;
+      let platformVersionIds: string[] = Array.isArray(pvObjs) ? pvObjs.map((p) => String(p.id)) : [];
+      if (platformVersionIds.length === 0) {
+        const singlePv = String(
+          (ticket as any).platformVersionId || (ticket as any).platformVersion?.id || "",
+        );
+        if (singlePv) platformVersionIds = [singlePv];
+      }
+
       setFormData({
         title: ticket.title || "",
         description: ticket.description || "",
@@ -84,8 +94,7 @@ const EditTicketModal = ({
         priority: (ticket.priority as any) || "Medium",
         statusId: String(resolvedStatusId),
         assigneeIds,
-        platformVersionId:
-          (ticket as any).platformVersionId || (ticket as any).platformVersion?.id || null,
+        platformVersionIds,
       });
     }
   }, [isOpen, ticket, statuses]);
@@ -251,7 +260,7 @@ const EditTicketModal = ({
         jamUrl: formData.jamUrl.trim() || null,
         priority: formData.priority,
         assigneeIds: formData.assigneeIds,
-        platformVersionId: formData.platformVersionId,
+        platformVersionIds: formData.platformVersionIds,
       };
       if (formData.statusId) payload.statusId = formData.statusId;
 
@@ -349,10 +358,10 @@ const EditTicketModal = ({
 
               <div>
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Platform / Version</label>
-                <PlatformVersionSelect
+                <PlatformVersionMultiSelect
                   options={platformVersions}
-                  value={formData.platformVersionId}
-                  onChange={(id) => setFormData({ ...formData, platformVersionId: id })}
+                  selectedIds={formData.platformVersionIds}
+                  onChange={(ids) => setFormData({ ...formData, platformVersionIds: ids })}
                   loading={loadingPv}
                   disabled={isSubmitting}
                   emptyHint="No platforms/versions yet — add them on the Collections page."

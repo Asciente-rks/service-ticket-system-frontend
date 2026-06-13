@@ -52,6 +52,7 @@ export interface Ticket {
   assignees?: TicketUser[];
   platformVersionId?: string | null;
   platformVersion?: TicketPlatformVersion | null;
+  platformVersions?: TicketPlatformVersion[];
 }
 
 export interface PlatformVersion {

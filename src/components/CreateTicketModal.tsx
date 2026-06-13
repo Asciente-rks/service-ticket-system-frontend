@@ -4,7 +4,7 @@ import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
 import type { TicketStatus, User, PlatformVersion } from "../types";
 import AssigneeMultiSelect from "./AssigneeMultiSelect";
-import PlatformVersionSelect from "./PlatformVersionSelect";
+import PlatformVersionMultiSelect from "./PlatformVersionMultiSelect";
 
 interface Props {
   isOpen: boolean;
@@ -30,7 +30,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
     priority: "",
     statusId: "",
     assigneeIds: [] as string[],
-    platformVersionId: null as string | null,
+    platformVersionIds: [] as string[],
   });
   const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -144,7 +144,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
         priority: "",
         statusId: "",
         assigneeIds: [],
-        platformVersionId: null,
+        platformVersionIds: [],
       });
       setError("");
       fetchData();
@@ -176,7 +176,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
         priority: formData.priority,
         statusId: formData.statusId || null,
         assigneeIds: formData.assigneeIds,
-        platformVersionId: formData.platformVersionId,
+        platformVersionIds: formData.platformVersionIds,
       };
       // Silently file the ticket under the dashboard's collection (the
       // backend falls back to the org's default collection when omitted).
@@ -285,10 +285,10 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
 
               <div>
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Platform / Version</label>
-                <PlatformVersionSelect
+                <PlatformVersionMultiSelect
                   options={platformVersions}
-                  value={formData.platformVersionId}
-                  onChange={(id) => setFormData({ ...formData, platformVersionId: id })}
+                  selectedIds={formData.platformVersionIds}
+                  onChange={(ids) => setFormData({ ...formData, platformVersionIds: ids })}
                   loading={loadingPv}
                   disabled={isSubmitting}
                   emptyHint={defaultCollectionId ? "No platforms/versions yet — add them on the Collections page." : "Open a collection to pick a platform/version."}

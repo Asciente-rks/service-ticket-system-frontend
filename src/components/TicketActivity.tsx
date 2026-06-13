@@ -173,6 +173,30 @@ const TicketActivity = ({ ticketId, currentUserId }: Props) => {
 
   useEffect(() => { load(); }, [load]);
 
+  // Silent polling so new comments and timeline events (from this user or
+  // teammates) appear in near real-time without a manual refresh.
+  useEffect(() => {
+    const tick = async () => {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const [c, h] = await Promise.allSettled([
+          api.get(`/tickets/${ticketId}/comments`),
+          api.get(`/tickets/${ticketId}/history`),
+        ]);
+        if (c.status === "fulfilled") setComments(Array.isArray(c.value.data) ? c.value.data : []);
+        if (h.status === "fulfilled") setEvents(Array.isArray(h.value.data) ? h.value.data : []);
+      } catch {
+        /* keep prior data */
+      }
+    };
+    const id = window.setInterval(tick, 10000);
+    window.addEventListener("focus", tick);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", tick);
+    };
+  }, [ticketId]);
+
   // Build an arbitrary-depth tree from the flat comment list.
   const tree = useMemo<CommentNode[]>(() => {
     const byId = new Map<string, CommentNode>();

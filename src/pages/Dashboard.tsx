@@ -63,6 +63,47 @@ const Dashboard = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Silent refresh (no full-page spinner) for near-real-time updates: polling,
+  // window focus, and after the user's own create/edit/delete actions.
+  const refreshTickets = useCallback(async () => {
+    try {
+      const [tReq, cReq] = await Promise.allSettled([
+        api.get("/tickets"),
+        api.get("/collections"),
+      ]);
+      if (tReq.status === "fulfilled") setTickets(Array.isArray(tReq.value.data) ? tReq.value.data : []);
+      if (cReq.status === "fulfilled") setCollections(Array.isArray(cReq.value.data) ? cReq.value.data : []);
+    } catch {
+      /* keep prior data on transient failure */
+    }
+  }, []);
+
+  // Poll while the tab is visible + refetch on focus, so changes made here or by
+  // teammates appear within a few seconds without a manual refresh.
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") refreshTickets();
+    };
+    const id = window.setInterval(tick, 8000);
+    window.addEventListener("focus", refreshTickets);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", refreshTickets);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [refreshTickets]);
+
+  // Keep an open ticket detail in sync with refreshed data (but never while the
+  // edit modal is open — that would clobber the in-progress form).
+  useEffect(() => {
+    if (!selectedTicket || isEditModalOpen) return;
+    const fresh: any = tickets.find((t) => String(t.id) === String(selectedTicket.id));
+    if (fresh && (fresh.updatedAt !== (selectedTicket as any).updatedAt)) {
+      setSelectedTicket(fresh);
+    }
+  }, [tickets, selectedTicket, isEditModalOpen]);
+
   const requestDelete = (id: string) => {
     setDeleteError("");
     setDeletingTicketId(id);
@@ -76,7 +117,7 @@ const Dashboard = () => {
       await api.delete(`/tickets/${deletingTicketId}`);
       setDeletingTicketId(null);
       setSelectedTicket(null);
-      fetchData();
+      refreshTickets();
     } catch (err: any) {
       setDeleteError(err?.response?.data?.message || "Failed to delete ticket.");
     } finally {
@@ -422,6 +463,11 @@ const Dashboard = () => {
               ? `${assigneesArr[0].name}${assigneesArr.length > 1 ? ` +${assigneesArr.length - 1}` : ""}`
               : getUserName(ticket.assignee || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to);
             const assigneeTitle = assigneesArr.length ? assigneesArr.map((a) => a.name).join(", ") : assigneeName;
+            const pvList: any[] = Array.isArray(ticket.platformVersions) && ticket.platformVersions.length
+              ? ticket.platformVersions
+              : ticket.platformVersion
+              ? [ticket.platformVersion]
+              : [];
             return (
               <div
                 key={ticket.id}
@@ -443,16 +489,21 @@ const Dashboard = () => {
                   </span>
                 </div>
 
-                {((!activeCollectionId && ticket.collectionName) || ticket.platformVersion) && (
+                {((!activeCollectionId && ticket.collectionName) || pvList.length > 0) && (
                   <div className="flex flex-wrap items-center gap-1.5 mb-2 -mt-1">
                     {!activeCollectionId && ticket.collectionName && (
                       <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
                         <FolderKanban className="h-3 w-3" /> {ticket.collectionName}
                       </span>
                     )}
-                    {ticket.platformVersion && (
-                      <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }} title="Platform / version">
-                        <Layers className="h-3 w-3" /> {ticket.platformVersion.platform} · {ticket.platformVersion.version}
+                    {pvList.slice(0, 2).map((pv: any) => (
+                      <span key={pv.id} className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }} title="Platform / version">
+                        <Layers className="h-3 w-3" /> {pv.platform} · {pv.version}
+                      </span>
+                    ))}
+                    {pvList.length > 2 && (
+                      <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }} title={pvList.map((p: any) => `${p.platform} · ${p.version}`).join(", ")}>
+                        +{pvList.length - 2}
                       </span>
                     )}
                   </div>
@@ -494,7 +545,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      <CreateTicketModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={fetchData} defaultCollectionId={activeCollectionId || undefined} />
+      <CreateTicketModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={refreshTickets} defaultCollectionId={activeCollectionId || undefined} />
 
       {selectedTicket && (
         <TicketDetailModal
@@ -538,7 +589,7 @@ const Dashboard = () => {
         <EditTicketModal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          onSuccess={fetchData}
+          onSuccess={refreshTickets}
           ticket={selectedTicket}
           statuses={statuses}
           users={users}
@@ -551,7 +602,7 @@ const Dashboard = () => {
           isOpen={!!approvingTicketId}
           onClose={() => setApprovingTicketId(null)}
           ticketId={approvingTicketId}
-          onSuccess={fetchData}
+          onSuccess={refreshTickets}
         />
       )}
     </div>

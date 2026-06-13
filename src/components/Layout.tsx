@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare, Sparkles, FolderKanban } from "lucide-react";
+import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare, Sparkles, FolderKanban, ChevronsUpDown } from "lucide-react";
 import { getLoggedInUser, logout } from "../utils/auth";
 import api from "../services/api";
 import type { User, Role, Organization, NotificationItem } from "../types";
@@ -122,17 +122,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);
 
+  // Collections are the high-level workspace gate (chosen right after login and
+  // switched from the sidebar header), so they're no longer a peer nav item.
+  // All nav items operate WITHIN the selected collection.
   const menuItems = useMemo(() => {
     const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
-      { name: "Collections", path: "/collections?all=1", icon: FolderKanban },
-    ];
-    if (activeCollection) {
-      items.push({ name: activeCollection.name, path: `/dashboard?collection=${activeCollection.id}`, icon: Home });
-    }
-    items.push(
+      {
+        name: "Dashboard",
+        path: activeCollection ? `/dashboard?collection=${activeCollection.id}` : "/collections?all=1",
+        icon: Home,
+      },
       { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
       { name: "AI Assistant", path: "/ai", icon: Sparkles },
-    );
+    ];
     if (isAdmin) items.push({ name: "Team", path: "/users", icon: Users });
     return items;
   }, [isAdmin, dmUnread, activeCollection]);
@@ -170,15 +172,43 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           </button>
         </div>
 
+        {/* Active collection — the high-level workspace. Click to switch (the
+            collection scopes the dashboard, AI assistant and everything inside it). */}
+        {!isCollapsed ? (
+          <div className="px-4 pb-3">
+            <button
+              onClick={() => navigate("/collections?all=1")}
+              className="group flex w-full cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-left transition hover:border-[var(--accent)]"
+              style={{ borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+              title="Switch collection"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
+                <FolderKanban className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Collection</span>
+                <span className="block truncate text-sm font-bold" style={{ color: "var(--text)" }}>{activeCollection?.name || "Choose a collection"}</span>
+              </span>
+              <ChevronsUpDown className="h-4 w-4 shrink-0 transition group-hover:text-[var(--accent)]" style={{ color: "var(--muted)" }} />
+            </button>
+          </div>
+        ) : (
+          <div className="px-3 pb-2 flex justify-center">
+            <button
+              onClick={() => navigate("/collections?all=1")}
+              title="Switch collection"
+              className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl transition hover:bg-[var(--accent-soft)]"
+              style={{ color: "var(--accent)" }}
+            >
+              <FolderKanban className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        )}
+
         <nav className="flex-1 px-3 pt-3 space-y-1.5">
           {menuItems.map((item) => {
             const basePath = item.path.split("?")[0];
-            const isActive =
-              basePath === "/dashboard"
-                ? location.pathname === "/dashboard"
-                : basePath === "/collections"
-                  ? location.pathname === "/collections" || (location.pathname === "/dashboard" && !activeCollection)
-                  : location.pathname === basePath;
+            const isActive = location.pathname === basePath;
             const Icon = item.icon;
             return (
               <Link
@@ -224,11 +254,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             <button
               type="button"
               onClick={goHome}
-              className="flex items-center rounded-lg transition hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              className="flex cursor-pointer items-center rounded-lg bg-transparent border-0 p-0 transition hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
               aria-label="Go to dashboard"
               title="Back to dashboard"
             >
-              <span className="brand-logo brand-logo--header">
+              <span className="brand-logo brand-logo--header pointer-events-none">
                 <img src={theme === "dark" ? LogoNoNameDark : Logo} alt="NexusTrack" />
               </span>
             </button>

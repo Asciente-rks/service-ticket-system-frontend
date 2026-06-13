@@ -227,22 +227,33 @@ const TicketDetailModal = ({
 
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest mb-1 text-[var(--muted)]">
-                      Platform / Version
+                      {Array.isArray(ticket.platformVersions) && ticket.platformVersions.length > 1 ? "Platforms / Versions" : "Platform / Version"}
                     </label>
-                    {ticket.platformVersion ? (
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold"
-                        style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
-                      >
-                        <Layers className="h-3.5 w-3.5" />
-                        {ticket.platformVersion.platform}
-                        <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}>
-                          {ticket.platformVersion.version}
-                        </span>
-                      </span>
-                    ) : (
-                      <p className="text-sm font-bold text-[var(--muted)]">Not specified</p>
-                    )}
+                    {(() => {
+                      const pvs = Array.isArray(ticket.platformVersions) && ticket.platformVersions.length
+                        ? ticket.platformVersions
+                        : ticket.platformVersion
+                        ? [ticket.platformVersion]
+                        : [];
+                      if (pvs.length === 0) return <p className="text-sm font-bold text-[var(--muted)]">Not specified</p>;
+                      return (
+                        <div className="flex flex-wrap gap-1.5">
+                          {pvs.map((pv: any) => (
+                            <span
+                              key={pv.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold"
+                              style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
+                            >
+                              <Layers className="h-3.5 w-3.5" />
+                              {pv.platform}
+                              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}>
+                                {pv.version}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 

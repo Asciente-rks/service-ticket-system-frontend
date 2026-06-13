@@ -87,9 +87,11 @@ const ticketUrl = (id: string, collectionId?: string | null) =>
 export const TicketChip = ({
   ticket,
   onOpen,
+  onOpenTicket,
 }: {
   ticket: AiTicketRef;
   onOpen?: () => void;
+  onOpenTicket?: (id: string, collectionId?: string | null) => void;
 }) => {
   const navigate = useNavigate();
   const priorityColor =
@@ -105,7 +107,10 @@ export const TicketChip = ({
     <button
       onClick={() => {
         onOpen?.();
-        navigate(ticketUrl(ticket.id, ticket.collectionId));
+        // Prefer opening as an overlay (e.g. inside the AI chat) instead of
+        // navigating away; fall back to navigation when no handler is provided.
+        if (onOpenTicket) onOpenTicket(ticket.id, ticket.collectionId);
+        else navigate(ticketUrl(ticket.id, ticket.collectionId));
       }}
       className="flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
       style={{ borderColor: "var(--border)", backgroundColor: "var(--bg)" }}
@@ -137,18 +142,21 @@ const InlineTicketLink = ({
   title,
   collectionId,
   onNavigate,
+  onOpenTicket,
 }: {
   id: string;
   title: string;
   collectionId?: string | null;
   onNavigate?: () => void;
+  onOpenTicket?: (id: string, collectionId?: string | null) => void;
 }) => {
   const navigate = useNavigate();
   return (
     <button
       onClick={() => {
         onNavigate?.();
-        navigate(ticketUrl(id, collectionId));
+        if (onOpenTicket) onOpenTicket(id, collectionId);
+        else navigate(ticketUrl(id, collectionId));
       }}
       className="inline-flex max-w-full items-center gap-1 rounded-lg border px-1.5 py-0.5 align-baseline text-xs font-semibold transition hover:bg-[var(--accent-soft)]"
       style={{ borderColor: "var(--accent)", color: "var(--accent)", margin: "0 2px", verticalAlign: "baseline" }}
@@ -164,15 +172,17 @@ const InlineSegments = ({
   segs,
   collectionOf,
   onNavigate,
+  onOpenTicket,
 }: {
   segs: InlineSeg[];
   collectionOf?: Map<string, string>;
   onNavigate?: () => void;
+  onOpenTicket?: (id: string, collectionId?: string | null) => void;
 }) => (
   <>
     {segs.map((seg, i) =>
       seg.type === "ticket" ? (
-        <InlineTicketLink key={i} id={seg.id} title={seg.title} collectionId={collectionOf?.get(seg.id)} onNavigate={onNavigate} />
+        <InlineTicketLink key={i} id={seg.id} title={seg.title} collectionId={collectionOf?.get(seg.id)} onNavigate={onNavigate} onOpenTicket={onOpenTicket} />
       ) : (
         <span key={i} dangerouslySetInnerHTML={{ __html: inlineMd(escapeHtml(seg.text)) }} />
       ),
@@ -184,10 +194,12 @@ const AiMessageBody = ({
   body,
   ticketRefs = [],
   onNavigate,
+  onOpenTicket,
 }: {
   body: string;
   ticketRefs?: AiTicketRef[];
   onNavigate?: () => void;
+  onOpenTicket?: (id: string, collectionId?: string | null) => void;
 }) => {
   const blocks = useMemo(() => toBlocks(body), [body]);
 
@@ -226,7 +238,7 @@ const AiMessageBody = ({
               <div key={i} className="flex gap-2" style={{ margin: "3px 0", paddingLeft: 8 }}>
                 <span className="shrink-0 select-none" style={{ color: "var(--accent)" }}>•</span>
                 <span className="min-w-0 flex-1">
-                  <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
+                  <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} onOpenTicket={onOpenTicket} />
                 </span>
               </div>
             );
@@ -238,7 +250,7 @@ const AiMessageBody = ({
                   {block.num}.
                 </span>
                 <span className="min-w-0 flex-1">
-                  <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
+                  <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} onOpenTicket={onOpenTicket} />
                 </span>
               </div>
             );
@@ -247,13 +259,13 @@ const AiMessageBody = ({
             const prev = blocks[i - 1];
             return (
               <p key={i} className="font-bold" style={{ margin: prev && prev.kind !== "gap" ? "10px 0 3px" : "2px 0 3px" }}>
-                <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
+                <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} onOpenTicket={onOpenTicket} />
               </p>
             );
           }
           return (
             <p key={i} style={{ margin: "2px 0" }}>
-              <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} />
+              <InlineSegments segs={block.segs} collectionOf={collectionOf} onNavigate={onNavigate} onOpenTicket={onOpenTicket} />
             </p>
           );
         })}
@@ -263,7 +275,7 @@ const AiMessageBody = ({
         <div className="mt-3 space-y-1.5">
           {chipRefs.map((r) => (
             <Fragment key={r.id}>
-              <TicketChip ticket={r} onOpen={onNavigate} />
+              <TicketChip ticket={r} onOpen={onNavigate} onOpenTicket={onOpenTicket} />
             </Fragment>
           ))}
         </div>

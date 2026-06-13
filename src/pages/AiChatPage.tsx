@@ -15,6 +15,7 @@ import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
 import AiMessageBody from "../components/AiMessageBody";
 import DuplicateReviewCard from "../components/DuplicateReviewCard";
+import TicketQuickView from "../components/TicketQuickView";
 import type { AiConversation, AiMessage } from "../types";
 
 // All times displayed in Philippine time (the system's user base).
@@ -99,6 +100,8 @@ const AiChatPage = () => {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Ticket opened from the chat — shown as an overlay so the user never leaves the conversation.
+  const [quickTicketId, setQuickTicketId] = useState<string | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -536,11 +539,12 @@ const AiChatPage = () => {
                           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{m.body}</p>
                         ) : (
                           <>
-                            <AiMessageBody body={m.body} ticketRefs={m.ticketRefs} />
+                            <AiMessageBody body={m.body} ticketRefs={m.ticketRefs} onOpenTicket={(id) => setQuickTicketId(id)} />
                             {!!m.meta?.duplicateGroups?.length && (
                               <DuplicateReviewCard
                                 groups={m.meta.duplicateGroups}
                                 onTicketDeleted={handleDuplicateDeleted}
+                                onOpenTicket={(id) => setQuickTicketId(id)}
                               />
                             )}
                           </>
@@ -596,6 +600,12 @@ const AiChatPage = () => {
           </>
         )}
       </main>
+
+      <TicketQuickView
+        ticketId={quickTicketId}
+        onClose={() => setQuickTicketId(null)}
+        onTicketDeleted={() => handleDuplicateDeleted()}
+      />
     </div>
   );
 };

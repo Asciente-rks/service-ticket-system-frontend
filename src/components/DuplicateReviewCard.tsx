@@ -10,6 +10,8 @@ interface Props {
   groups: AiDuplicateGroup[];
   /** Fired after each successful deletion (parent triggers the AI re-check). */
   onTicketDeleted?: (ticket: AiTicketRef) => void;
+  /** Open a ticket as an overlay instead of navigating away (keeps the chat in view). */
+  onOpenTicket?: (id: string, collectionId?: string | null) => void;
 }
 
 const ticketUrl = (t: AiTicketRef) =>
@@ -22,7 +24,7 @@ const ticketUrl = (t: AiTicketRef) =>
  * through the normal ticket API with the user's own permissions (admins or
  * the ticket's reporter) — the AI itself never deletes anything.
  */
-const DuplicateReviewCard = ({ groups, onTicketDeleted }: Props) => {
+const DuplicateReviewCard = ({ groups, onTicketDeleted, onOpenTicket }: Props) => {
   const navigate = useNavigate();
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [keptGroups, setKeptGroups] = useState<Set<number>>(new Set());
@@ -124,10 +126,13 @@ const DuplicateReviewCard = ({ groups, onTicketDeleted }: Props) => {
                       ) : (
                         <div className="flex shrink-0 items-center gap-1.5">
                           <button
-                            onClick={() => navigate(ticketUrl(t))}
+                            onClick={() => {
+                              if (onOpenTicket) onOpenTicket(t.id, t.collectionId);
+                              else navigate(ticketUrl(t));
+                            }}
                             className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition hover:bg-[var(--accent-soft)]"
                             style={{ borderColor: "var(--border)", color: "var(--accent)" }}
-                            title="Open this ticket in its collection"
+                            title="Open this ticket"
                           >
                             Open <ArrowUpRight className="h-3 w-3" />
                           </button>

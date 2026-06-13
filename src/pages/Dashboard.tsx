@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
-import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Trash2, Plus, Ticket as TicketIcon, FolderKanban, Sparkles, X } from "lucide-react";
+import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Trash2, Plus, Ticket as TicketIcon, FolderKanban, Sparkles, X, Layers } from "lucide-react";
 import api from "../services/api";
 import type { Ticket, TicketStatus, User, Role, Collection, AiDuplicateGroup } from "../types";
 import CreateTicketModal from "../components/CreateTicketModal";
@@ -417,7 +417,11 @@ const Dashboard = () => {
             const ticket = t;
             const statusName = getStatusName(ticket);
             const statusMeta = getStatusMeta(statusName);
-            const assigneeName = getUserName(ticket.assignee || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to);
+            const assigneesArr: any[] = Array.isArray(ticket.assignees) ? ticket.assignees : [];
+            const assigneeName = assigneesArr.length
+              ? `${assigneesArr[0].name}${assigneesArr.length > 1 ? ` +${assigneesArr.length - 1}` : ""}`
+              : getUserName(ticket.assignee || ticket.assigneeId || ticket.assignedTo || ticket.assigned_to);
+            const assigneeTitle = assigneesArr.length ? assigneesArr.map((a) => a.name).join(", ") : assigneeName;
             return (
               <div
                 key={ticket.id}
@@ -439,11 +443,18 @@ const Dashboard = () => {
                   </span>
                 </div>
 
-                {!activeCollectionId && ticket.collectionName && (
-                  <div className="flex items-center gap-2 mb-2 -mt-1">
-                    <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
-                      <FolderKanban className="h-3 w-3" /> {ticket.collectionName}
-                    </span>
+                {((!activeCollectionId && ticket.collectionName) || ticket.platformVersion) && (
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2 -mt-1">
+                    {!activeCollectionId && ticket.collectionName && (
+                      <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
+                        <FolderKanban className="h-3 w-3" /> {ticket.collectionName}
+                      </span>
+                    )}
+                    {ticket.platformVersion && (
+                      <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }} title="Platform / version">
+                        <Layers className="h-3 w-3" /> {ticket.platformVersion.platform} · {ticket.platformVersion.version}
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -455,7 +466,7 @@ const Dashboard = () => {
                     {statusMeta.icon}{statusName}
                   </span>
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] truncate max-w-[90px]" style={{ color: "var(--muted)" }}>{assigneeName}</span>
+                    <span className="text-[11px] truncate max-w-[110px]" style={{ color: "var(--muted)" }} title={assigneeTitle}>{assigneeName}</span>
                     {isAdmin && (
                       <>
                         <button

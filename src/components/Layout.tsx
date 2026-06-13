@@ -139,6 +139,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   const roleName = roles.find((r) => String(r.id).toLowerCase() === String(user?.roleId).toLowerCase())?.name || "Member";
 
+  // Clicking the logo always takes the user home to the dashboard (their active
+  // collection's board), resetting any in-page filters/modals. Falls back to the
+  // Collections picker when no collection has been opened yet.
+  const goHome = () => {
+    setIsProfileOpen(false);
+    setIsNotificationsOpen(false);
+    if (activeCollection) {
+      navigate(`/dashboard?collection=${activeCollection.id}`);
+    } else {
+      navigate("/collections?all=1");
+    }
+  };
+
   return (
     <div className="min-h-screen flex app-shell protected-shell">
       <aside
@@ -208,9 +221,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex-1 flex flex-col">
         <header className="app-header h-16 border-b flex items-center justify-between px-6" style={{ borderColor: "var(--border)", backgroundColor: "var(--surface)" }}>
           <div className="flex items-center gap-3">
-            <span className="brand-logo brand-logo--header">
-              <img src={theme === "dark" ? LogoNoNameDark : Logo} alt="NexusTrack" />
-            </span>
+            <button
+              type="button"
+              onClick={goHome}
+              className="flex items-center rounded-lg transition hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              aria-label="Go to dashboard"
+              title="Back to dashboard"
+            >
+              <span className="brand-logo brand-logo--header">
+                <img src={theme === "dark" ? LogoNoNameDark : Logo} alt="NexusTrack" />
+              </span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">

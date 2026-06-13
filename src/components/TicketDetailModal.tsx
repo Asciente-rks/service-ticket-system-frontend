@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Trash2, Video, ExternalLink, Sparkles } from "lucide-react";
+import { Trash2, Video, ExternalLink, Sparkles, Layers } from "lucide-react";
 import type { TicketStatus, User } from "../types";
 import { getPriorityBadgeClasses, getStatusMeta } from "../utils/labelStyles";
 import TicketActivity from "./TicketActivity";
@@ -186,16 +186,32 @@ const TicketDetailModal = ({
 
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest mb-1 text-[var(--muted)]">
-                      Assignee
+                      {Array.isArray(ticket.assignees) && ticket.assignees.length > 1 ? "Assignees" : "Assignee"}
                     </label>
-                    <p className="text-sm font-bold text-[var(--text)]">
-                      {getUserName(
-                        ticket.assignee ||
-                          ticket.assigneeId ||
-                          ticket.assignedTo ||
-                          ticket.assigned_to,
-                      )}
-                    </p>
+                    {Array.isArray(ticket.assignees) && ticket.assignees.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {ticket.assignees.map((a: any, i: number) => (
+                          <span
+                            key={a.id}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold"
+                            style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
+                            title={i === 0 ? "Primary assignee" : a.email}
+                          >
+                            {i === 0 && <span className="text-[9px] font-black uppercase opacity-70">Primary</span>}
+                            {a.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-bold text-[var(--text)]">
+                        {getUserName(
+                          ticket.assignee ||
+                            ticket.assigneeId ||
+                            ticket.assignedTo ||
+                            ticket.assigned_to,
+                        )}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -207,6 +223,26 @@ const TicketDetailModal = ({
                         ticket.reporter || ticket.reportedBy || ticket.reported_by,
                       )}
                     </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest mb-1 text-[var(--muted)]">
+                      Platform / Version
+                    </label>
+                    {ticket.platformVersion ? (
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold"
+                        style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
+                      >
+                        <Layers className="h-3.5 w-3.5" />
+                        {ticket.platformVersion.platform}
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}>
+                          {ticket.platformVersion.version}
+                        </span>
+                      </span>
+                    ) : (
+                      <p className="text-sm font-bold text-[var(--muted)]">Not specified</p>
+                    )}
                   </div>
                 </div>
 

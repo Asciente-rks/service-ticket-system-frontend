@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { FolderKanban, Plus, Pencil, Trash2, Ticket as TicketIcon, ArrowRight, X } from "lucide-react";
+import { FolderKanban, Plus, Pencil, Trash2, Ticket as TicketIcon, ArrowRight, X, Layers } from "lucide-react";
 import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
 import { getLoggedInUser } from "../utils/auth";
 import ConfirmDialog from "../components/ConfirmDialog";
+import PlatformVersionsManager from "../components/PlatformVersionsManager";
 import type { Collection, Role } from "../types";
 
 /**
@@ -35,6 +36,9 @@ const CollectionsPage = () => {
   const [deleting, setDeleting] = useState<Collection | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+
+  // Per-collection platform/version manager
+  const [managing, setManaging] = useState<Collection | null>(null);
 
   const currentUser = getLoggedInUser();
 
@@ -206,6 +210,14 @@ const CollectionsPage = () => {
                 {isAdmin && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                     <button
+                      onClick={(e) => { e.stopPropagation(); setManaging(c); }}
+                      title="Manage platforms & versions"
+                      className="grid place-items-center h-8 w-8 rounded-lg transition hover:bg-[var(--accent-soft)]"
+                      style={{ color: "var(--muted)" }}
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                    </button>
+                    <button
                       onClick={(e) => { e.stopPropagation(); openEdit(c); }}
                       title="Edit collection"
                       className="grid place-items-center h-8 w-8 rounded-lg transition hover:bg-[var(--accent-soft)]"
@@ -326,6 +338,15 @@ const CollectionsPage = () => {
           }
         }}
       />
+
+      {managing && (
+        <PlatformVersionsManager
+          isOpen={!!managing}
+          collection={managing}
+          canManage={isAdmin}
+          onClose={() => setManaging(null)}
+        />
+      )}
     </div>
   );
 };

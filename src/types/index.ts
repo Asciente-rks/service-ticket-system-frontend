@@ -22,6 +22,19 @@ export interface Organization {
   createdAt?: string;
 }
 
+export interface TicketUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface TicketPlatformVersion {
+  id: string;
+  platform: string;
+  version: string;
+  label: string;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -33,6 +46,22 @@ export interface Ticket {
   userId: string;
   collectionId?: string | null;
   collectionName?: string | null;
+  /** Primary/lifecycle owner (first assignee). */
+  assignee?: TicketUser | null;
+  /** Full set of assignees (includes the primary). */
+  assignees?: TicketUser[];
+  platformVersionId?: string | null;
+  platformVersion?: TicketPlatformVersion | null;
+}
+
+export interface PlatformVersion {
+  id: string;
+  collectionId: string;
+  platform: string;
+  version: string;
+  label: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Collection {

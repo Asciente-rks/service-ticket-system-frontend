@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { CheckCircle, Clock, Lock, Inbox, Eye, AlertTriangle, Circle, Video, ChevronDown } from "lucide-react";
 import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
-import type { TicketStatus, User } from "../types";
+import type { TicketStatus, User, PlatformVersion } from "../types";
+import AssigneeMultiSelect from "./AssigneeMultiSelect";
+import PlatformVersionSelect from "./PlatformVersionSelect";
 
 interface Props {
   isOpen: boolean;
@@ -15,8 +17,10 @@ interface Props {
 const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: Props) => {
   const [statuses, setStatuses] = useState<TicketStatus[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [platformVersions, setPlatformVersions] = useState<PlatformVersion[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [loadingPv, setLoadingPv] = useState(false);
   const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
@@ -25,9 +29,10 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
     jamUrl: "",
     priority: "",
     statusId: "",
-    assignedTo: "",
+    assigneeIds: [] as string[],
+    platformVersionId: null as string | null,
   });
-  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const dropdownGroupRef = useRef<HTMLDivElement>(null);
 
@@ -96,21 +101,15 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
       try {
         try {
           const statusRes = await api.get("/tickets/statuses");
-          const fetchedStatuses = Array.isArray(statusRes.data)
-            ? statusRes.data
-            : [];
-          if (isMounted) {
-            setStatuses(fetchedStatuses);
-          }
+          const fetchedStatuses = Array.isArray(statusRes.data) ? statusRes.data : [];
+          if (isMounted) setStatuses(fetchedStatuses);
         } catch (err) {
           console.error("Status fetch failed:", err);
         }
 
         try {
           const userRes = await api.get("/users");
-          if (isMounted) {
-            setUsers(Array.isArray(userRes.data) ? userRes.data : []);
-          }
+          if (isMounted) setUsers(Array.isArray(userRes.data) ? userRes.data : []);
         } catch (err) {
           console.error("User fetch failed:", err);
         }
@@ -121,6 +120,22 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
       }
     };
 
+    const fetchPlatformVersions = async () => {
+      if (!defaultCollectionId) {
+        setPlatformVersions([]);
+        return;
+      }
+      setLoadingPv(true);
+      try {
+        const res = await api.get(`/collections/${defaultCollectionId}/platform-versions`);
+        if (isMounted) setPlatformVersions(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        if (isMounted) setPlatformVersions([]);
+      } finally {
+        if (isMounted) setLoadingPv(false);
+      }
+    };
+
     if (isOpen) {
       setFormData({
         title: "",
@@ -128,16 +143,18 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
         jamUrl: "",
         priority: "",
         statusId: "",
-        assignedTo: "",
+        assigneeIds: [],
+        platformVersionId: null,
       });
       setError("");
       fetchData();
+      fetchPlatformVersions();
     }
 
     return () => {
       isMounted = false;
     };
-  }, [isOpen]);
+  }, [isOpen, defaultCollectionId]);
 
   if (!isOpen) return null;
 
@@ -158,7 +175,8 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
         jamUrl: formData.jamUrl.trim() || null,
         priority: formData.priority,
         statusId: formData.statusId || null,
-        assigneeId: formData.assignedTo || null,
+        assigneeIds: formData.assigneeIds,
+        platformVersionId: formData.platformVersionId,
       };
       // Silently file the ticket under the dashboard's collection (the
       // backend falls back to the org's default collection when omitted).
@@ -193,7 +211,7 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
             Create new ticket
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Add a new ticket with priority, status and assignee.
+            Add a new ticket with priority, status, assignees and platform/version.
           </p>
         </div>
 
@@ -254,44 +272,27 @@ const CreateTicketModal = ({ isOpen, onClose, onSuccess, defaultCollectionId }: 
             </div>
 
             <div className="space-y-4" ref={dropdownGroupRef}>
-              <div className="relative">
+              <div>
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Assign To</label>
-                <button
-                  type="button"
-                  onClick={() => setOpenDropdown((prev) => (prev === "assign" ? null : "assign"))}
-                  className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
-                  style={triggerStyle}
-                >
-                  <span className="truncate">
-                    {formData.assignedTo
-                      ? users.find((user) => String(user.id) === formData.assignedTo)?.name
-                      : isLoadingData
-                      ? "Loading..."
-                      : "Select Assignee"}
-                  </span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "assign" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
-                </button>
-                {openDropdown === "assign" && (
-                  <div
-                    className="dropdown-menu absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-2xl border shadow-2xl z-20 p-1"
-                    style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
-                  >
-                    {users.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, assignedTo: String(user.id) });
-                          setOpenDropdown(null);
-                        }}
-                        className={`w-full text-left px-3 py-2.5 text-sm transition dropdown-option ${formData.assignedTo === String(user.id) ? "selected" : ""}`}
-                        style={{ color: "var(--text)" }}
-                      >
-                        {user.name} ({user.email})
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <AssigneeMultiSelect
+                  users={users}
+                  selectedIds={formData.assigneeIds}
+                  onChange={(ids) => setFormData({ ...formData, assigneeIds: ids })}
+                  loading={isLoadingData}
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Platform / Version</label>
+                <PlatformVersionSelect
+                  options={platformVersions}
+                  value={formData.platformVersionId}
+                  onChange={(id) => setFormData({ ...formData, platformVersionId: id })}
+                  loading={loadingPv}
+                  disabled={isSubmitting}
+                  emptyHint={defaultCollectionId ? "No platforms/versions yet — add them on the Collections page." : "Open a collection to pick a platform/version."}
+                />
               </div>
 
               <div className="relative">

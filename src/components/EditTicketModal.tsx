@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Video, ChevronDown } from "lucide-react";
 import api from "../services/api";
 import { getApiErrorMessage } from "../utils/apiError";
-import type { Ticket, TicketStatus, User, Role } from "../types";
+import type { Ticket, TicketStatus, User, Role, PlatformVersion } from "../types";
 import { getLoggedInUser } from "../utils/auth";
 import { getStatusMeta } from "../utils/labelStyles";
+import AssigneeMultiSelect from "./AssigneeMultiSelect";
+import PlatformVersionSelect from "./PlatformVersionSelect";
 
 interface Props {
   isOpen: boolean;
@@ -27,14 +29,17 @@ const EditTicketModal = ({
 }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | null>(null);
+  const [platformVersions, setPlatformVersions] = useState<PlatformVersion[]>([]);
+  const [loadingPv, setLoadingPv] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     jamUrl: "",
     priority: "Medium",
     statusId: "",
-    assigneeId: "",
+    assigneeIds: [] as string[],
+    platformVersionId: null as string | null,
   });
   const dropdownGroupRef = useRef<HTMLDivElement>(null);
 
@@ -58,22 +63,57 @@ const EditTicketModal = ({
         (statusName ? statuses.find((s) => s.name === statusName)?.id : "") ||
         "";
 
+      // Prefer the full assignee set; fall back to the legacy single assignee.
+      const assigneeObjs = (ticket as any).assignees as { id: string }[] | undefined;
+      let assigneeIds: string[] = Array.isArray(assigneeObjs) ? assigneeObjs.map((a) => String(a.id)) : [];
+      if (assigneeIds.length === 0) {
+        const single = String(
+          (ticket as any).assigneeId ||
+            (ticket as any).assignedTo ||
+            (ticket as any).assigned_to ||
+            (ticket as any).assignee?.id ||
+            "",
+        );
+        if (single) assigneeIds = [single];
+      }
+
       setFormData({
         title: ticket.title || "",
         description: ticket.description || "",
         jamUrl: (ticket as any).jamUrl || "",
         priority: (ticket.priority as any) || "Medium",
         statusId: String(resolvedStatusId),
-        assigneeId: String(
-          (ticket as any).assigneeId ||
-            (ticket as any).assignedTo ||
-            (ticket as any).assigned_to ||
-            (ticket as any).assignee?.id ||
-            "",
-        ),
+        assigneeIds,
+        platformVersionId:
+          (ticket as any).platformVersionId || (ticket as any).platformVersion?.id || null,
       });
     }
   }, [isOpen, ticket, statuses]);
+
+  // Load the platform/version catalog for the ticket's collection.
+  useEffect(() => {
+    let active = true;
+    const collectionId = (ticket as any)?.collectionId || (ticket as any)?.collection_id;
+    if (!isOpen || !collectionId) {
+      setPlatformVersions([]);
+      return;
+    }
+    setLoadingPv(true);
+    api
+      .get(`/collections/${collectionId}/platform-versions`)
+      .then((res) => {
+        if (active) setPlatformVersions(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (active) setPlatformVersions([]);
+      })
+      .finally(() => {
+        if (active) setLoadingPv(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, ticket]);
 
   useEffect(() => {
     const handleOutsideClick = (event: MouseEvent) => {
@@ -143,41 +183,55 @@ const EditTicketModal = ({
     }
   };
 
+  // Users this actor may assign to (role rules). Computed before any early return.
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      if (!currentUser) return false;
+
+      const targetUserId = String(u.id).toLowerCase();
+      const targetUserRoleId = String(u.roleId).toLowerCase();
+      const currentUserId = String(currentUser.id).toLowerCase();
+
+      const currentRole =
+        roles
+          .find((r) => String(r.id).toLowerCase() === actorRoleId)
+          ?.name.toLowerCase() || "";
+
+      if (currentRole === "superadmin" || currentRole === "super admin") {
+        return targetUserId !== currentUserId;
+      }
+
+      const isTargetDev =
+        developerRoleId && targetUserRoleId === String(developerRoleId).toLowerCase();
+      const isTargetTester =
+        testerRoleId && targetUserRoleId === String(testerRoleId).toLowerCase();
+      const isTargetInWorkerPool = isTargetDev || isTargetTester;
+
+      if (currentRole === "admin") return isTargetInWorkerPool;
+      if (["developer", "dev", "tester", "qa"].includes(currentRole)) return isTargetInWorkerPool;
+      return false;
+    });
+  }, [users, roles, currentUser, actorRoleId, developerRoleId, testerRoleId]);
+
+  // Assignable list = role-permitted users PLUS anyone already assigned (so the
+  // existing roster is always visible/removable even if outside the actor's
+  // normal pool). The backend only re-validates NEWLY added assignees.
+  const selectableUsers = useMemo(() => {
+    const map = new Map<string, User>();
+    for (const u of filteredUsers) map.set(String(u.id), u);
+    const existing = (ticket as any)?.assignees as { id: string; name: string; email: string }[] | undefined;
+    if (Array.isArray(existing)) {
+      for (const a of existing) {
+        if (!map.has(String(a.id))) {
+          const full = users.find((u) => String(u.id) === String(a.id));
+          map.set(String(a.id), full || { id: a.id, name: a.name, email: a.email, roleId: null });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [filteredUsers, users, ticket]);
+
   if (!isOpen) return null;
-
-  const filteredUsers = users.filter((u) => {
-    if (!currentUser) return false;
-
-    const targetUserId = String(u.id).toLowerCase();
-    const targetUserRoleId = String(u.roleId).toLowerCase();
-    const currentUserId = String(currentUser.id).toLowerCase();
-
-    const currentRole =
-      roles
-        .find((r) => String(r.id).toLowerCase() === actorRoleId)
-        ?.name.toLowerCase() || "";
-
-    if (currentRole === "superadmin" || currentRole === "super admin") {
-      return targetUserId !== currentUserId;
-    }
-
-    const isTargetDev =
-      developerRoleId &&
-      targetUserRoleId === String(developerRoleId).toLowerCase();
-    const isTargetTester =
-      testerRoleId && targetUserRoleId === String(testerRoleId).toLowerCase();
-    const isTargetInWorkerPool = isTargetDev || isTargetTester;
-
-    if (currentRole === "admin") {
-      return isTargetInWorkerPool;
-    }
-
-    if (["developer", "dev", "tester", "qa"].includes(currentRole)) {
-      return isTargetInWorkerPool;
-    }
-
-    return false;
-  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,7 +250,8 @@ const EditTicketModal = ({
         description: formData.description,
         jamUrl: formData.jamUrl.trim() || null,
         priority: formData.priority,
-        assigneeId: formData.assigneeId || null,
+        assigneeIds: formData.assigneeIds,
+        platformVersionId: formData.platformVersionId,
       };
       if (formData.statusId) payload.statusId = formData.statusId;
 
@@ -226,7 +281,7 @@ const EditTicketModal = ({
             Edit ticket
           </h2>
           <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-            Update ticket details and assignments.
+            Update ticket details, assignees and platform/version.
           </p>
         </div>
 
@@ -282,42 +337,26 @@ const EditTicketModal = ({
             </div>
 
             <div className="space-y-4" ref={dropdownGroupRef}>
-              <div className="relative">
+              <div>
                 <label className={labelCls} style={{ color: "var(--muted)" }}>Assign To</label>
-                <button
-                  type="button"
-                  onClick={() => setOpenDropdown((prev) => (prev === "assign" ? null : "assign"))}
-                  className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
-                  style={triggerStyle}
-                >
-                  <span className="truncate">
-                    {formData.assigneeId
-                      ? users.find((user) => String(user.id) === formData.assigneeId)?.name
-                      : "Select Assignee"}
-                  </span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "assign" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
-                </button>
-                {openDropdown === "assign" && (
-                  <div
-                    className="dropdown-menu absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-2xl border shadow-2xl z-20 p-1"
-                    style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
-                  >
-                    {filteredUsers.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, assigneeId: String(user.id) });
-                          setOpenDropdown(null);
-                        }}
-                        className="w-full text-left px-3 py-2.5 text-sm transition dropdown-option"
-                        style={{ color: "var(--text)" }}
-                      >
-                        {user.name} ({user.email})
-                      </button>
-                    ))}
-                  </div>
-                )}
+                <AssigneeMultiSelect
+                  users={selectableUsers}
+                  selectedIds={formData.assigneeIds}
+                  onChange={(ids) => setFormData({ ...formData, assigneeIds: ids })}
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Platform / Version</label>
+                <PlatformVersionSelect
+                  options={platformVersions}
+                  value={formData.platformVersionId}
+                  onChange={(id) => setFormData({ ...formData, platformVersionId: id })}
+                  loading={loadingPv}
+                  disabled={isSubmitting}
+                  emptyHint="No platforms/versions yet — add them on the Collections page."
+                />
               </div>
 
               <div className="relative">

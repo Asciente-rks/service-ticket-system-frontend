@@ -35,20 +35,13 @@ const ApprovalModal = ({ isOpen, onClose, ticketId, onSuccess }: Props) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/70 backdrop-blur-md p-4">
-      <div
-        className="w-full max-w-xl rounded-[2rem] border p-8 shadow-2xl"
-        style={{
-          backgroundColor: "var(--surface)",
-          borderColor: "var(--border)",
-          color: "var(--text)",
-        }}
-      >
+    <div className="modal-overlay" style={{ zIndex: 150 }}>
+      <div className="modal-panel max-w-xl rounded-[2rem] p-8">
         <div className="mb-6 border-b border-[var(--border)] pb-4">
-          <h2 className="text-2xl font-black uppercase tracking-[0.25em]" style={{ color: "var(--text)" }}>
-            Review Ticket
+          <h2 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+            Review ticket
           </h2>
-          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
             Choose a decision and leave your review comments.
           </p>
         </div>
@@ -92,42 +85,18 @@ const ApprovalModal = ({ isOpen, onClose, ticketId, onSuccess }: Props) => {
               required
               rows={5}
               placeholder="Explain the reason for your decision..."
-              className="w-full rounded-3xl px-4 py-4 outline-none resize-none transition"
-              style={{
-                backgroundColor: "var(--input)",
-                border: "1px solid var(--border)",
-                color: "var(--input-text)",
-              }}
+              className="field px-4 py-4 outline-none resize-y"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              style={{
-                backgroundColor: "transparent",
-                border: "1px solid var(--border)",
-                color: "var(--text)",
-              }}
-            >
+            <button type="button" onClick={onClose} className="btn btn-ghost flex-1 px-6 py-3 text-sm uppercase tracking-widest font-bold">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              style={{
-                backgroundColor: "var(--button-bg)",
-                color: "var(--button-text)",
-                border: "1px solid var(--border)",
-                opacity: isSubmitting ? 0.6 : 1,
-              }}
-            >
-              {isSubmitting ? "Processing..." : "Submit Review"}
+            <button type="submit" disabled={isSubmitting} className="btn btn-primary flex-1 px-6 py-3 text-sm uppercase tracking-widest font-bold">
+              {isSubmitting ? (<><span className="ui-spinner h-4 w-4" /> Processing…</>) : "Submit Review"}
             </button>
           </div>
         </form>

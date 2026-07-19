@@ -1,6 +1,9 @@
-import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Trash2, Video, ExternalLink, Sparkles, Layers } from "lucide-react";
 import type { TicketStatus, User } from "../types";
 import { getPriorityBadgeClasses, getStatusMeta } from "../utils/labelStyles";
+import TicketActivity from "./TicketActivity";
+import TicketAiAssistant from "./TicketAiAssistant";
 
 interface Props {
   isOpen: boolean;
@@ -27,6 +30,8 @@ const TicketDetailModal = ({
   onEdit,
   onDelete,
 }: Props) => {
+  const [aiOpen, setAiOpen] = useState(false);
+
   if (!isOpen) return null;
 
   const reporterId = String(
@@ -69,11 +74,14 @@ const TicketDetailModal = ({
   const statusMeta = getStatusMeta(selectedStatus);
   const priorityClasses = getPriorityBadgeClasses(ticket.priority || "");
 
+  const jamUrl: string | null =
+    ticket.jamUrl || ticket.jam_url || null;
+
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="modal-overlay" style={{ zIndex: 110 }}>
       <div
-        className="w-full max-w-[90vw] lg:max-w-6xl max-h-[90vh] overflow-y-auto rounded-[2rem] border shadow-2xl bg-[var(--surface)] p-8"
-        style={{ borderColor: "var(--border)", color: "var(--text)" }}
+        className="modal-panel w-full max-w-[90vw] lg:max-w-6xl max-h-[90vh] overflow-y-auto rounded-[2rem] p-8"
+        style={{ color: "var(--text)" }}
       >
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between mb-8">
           <div>
@@ -88,6 +96,14 @@ const TicketDetailModal = ({
               {ticket.title}
             </h2>
           </div>
+          <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={() => setAiOpen(true)}
+            className="btn btn-soft h-12 px-4 text-xs font-bold uppercase tracking-widest"
+            title="Ask AI about this ticket"
+          >
+            <Sparkles className="h-4 w-4" /> AI Assistant
+          </button>
           <button
             onClick={onClose}
             className="rounded-full border border-[var(--border)] p-3 text-[var(--muted)] transition duration-200 ease-out hover:text-[var(--text)] hover:border-[var(--text)] hover:bg-[var(--card)]"
@@ -107,6 +123,7 @@ const TicketDetailModal = ({
               <path d="m6 6 12 12" />
             </svg>
           </button>
+          </div>
         </div>
 
         <div className="grid gap-8 xl:grid-cols-[1.75fr_1fr]">
@@ -115,10 +132,29 @@ const TicketDetailModal = ({
               <label className="block text-[10px] font-black uppercase tracking-widest mb-2 text-[var(--muted)]">
                 Ticket Description
               </label>
-              <p className="text-sm leading-relaxed text-[var(--text)]">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-[var(--text)]">
                 {ticket.description}
               </p>
             </div>
+
+            {jamUrl && (
+              <div className="rounded-3xl border border-[var(--border)] bg-[var(--input)] p-6">
+                <label className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest mb-3 text-[var(--muted)]">
+                  <Video className="h-3.5 w-3.5" /> Jam Recording
+                </label>
+                <a
+                  href={jamUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-soft inline-flex max-w-full items-center gap-2 px-4 py-2.5 text-sm font-semibold"
+                >
+                  <Video className="h-4 w-4 shrink-0" />
+                  <span className="truncate">Watch bug recording</span>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                </a>
+                <p className="mt-2 truncate text-xs font-mono" style={{ color: "var(--muted)" }}>{jamUrl}</p>
+              </div>
+            )}
 
             <div className="rounded-3xl border border-[var(--border)] bg-[var(--input)] p-6">
               <label className="block text-[10px] font-black uppercase tracking-widest mb-2 text-[var(--muted)]">
@@ -150,16 +186,32 @@ const TicketDetailModal = ({
 
                   <div>
                     <label className="block text-[10px] font-black uppercase tracking-widest mb-1 text-[var(--muted)]">
-                      Assignee
+                      {Array.isArray(ticket.assignees) && ticket.assignees.length > 1 ? "Assignees" : "Assignee"}
                     </label>
-                    <p className="text-sm font-bold text-[var(--text)]">
-                      {getUserName(
-                        ticket.assignee ||
-                          ticket.assigneeId ||
-                          ticket.assignedTo ||
-                          ticket.assigned_to,
-                      )}
-                    </p>
+                    {Array.isArray(ticket.assignees) && ticket.assignees.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {ticket.assignees.map((a: any, i: number) => (
+                          <span
+                            key={a.id}
+                            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold"
+                            style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
+                            title={i === 0 ? "Primary assignee" : a.email}
+                          >
+                            {i === 0 && <span className="text-[9px] font-black uppercase opacity-70">Primary</span>}
+                            {a.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-bold text-[var(--text)]">
+                        {getUserName(
+                          ticket.assignee ||
+                            ticket.assigneeId ||
+                            ticket.assignedTo ||
+                            ticket.assigned_to,
+                        )}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -171,6 +223,37 @@ const TicketDetailModal = ({
                         ticket.reporter || ticket.reportedBy || ticket.reported_by,
                       )}
                     </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest mb-1 text-[var(--muted)]">
+                      {Array.isArray(ticket.platformVersions) && ticket.platformVersions.length > 1 ? "Platforms / Versions" : "Platform / Version"}
+                    </label>
+                    {(() => {
+                      const pvs = Array.isArray(ticket.platformVersions) && ticket.platformVersions.length
+                        ? ticket.platformVersions
+                        : ticket.platformVersion
+                        ? [ticket.platformVersion]
+                        : [];
+                      if (pvs.length === 0) return <p className="text-sm font-bold text-[var(--muted)]">Not specified</p>;
+                      return (
+                        <div className="flex flex-wrap gap-1.5">
+                          {pvs.map((pv: any) => (
+                            <span
+                              key={pv.id}
+                              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold"
+                              style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}
+                            >
+                              <Layers className="h-3.5 w-3.5" />
+                              {pv.platform}
+                              <span className="rounded px-1.5 py-0.5 text-[10px] font-bold" style={{ backgroundColor: "var(--surface)", color: "var(--text)" }}>
+                                {pv.version}
+                              </span>
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -189,15 +272,19 @@ const TicketDetailModal = ({
                       Approval Status
                     </label>
                     <span
-                      className={`text-[10px] font-black uppercase ${
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-widest ${
                         ticket.approvalStatus === "Approved"
-                          ? "text-emerald-400"
+                          ? "text-emerald-600 border-emerald-500/40 bg-emerald-500/10"
                           : ticket.approvalStatus === "Rejected"
-                          ? "text-rose-400"
-                          : "text-[var(--muted)]"
+                          ? "text-rose-600 border-rose-500/40 bg-rose-500/10"
+                          : "text-[var(--muted)] border-[var(--border)] bg-[var(--accent-soft)]"
                       }`}
                     >
-                      {ticket.approvalStatus || "Pending"}
+                      {ticket.approvalStatus === "Approved"
+                        ? "Approved"
+                        : ticket.approvalStatus === "Rejected"
+                        ? "Rejected"
+                        : "Not yet approved"}
                     </span>
                   </div>
 
@@ -231,41 +318,45 @@ const TicketDetailModal = ({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 pt-2">
               {canDelete ? (
-                <button
-                  onClick={onDelete}
-                  className="inline-flex items-center gap-2 rounded-xl border px-5 py-3 text-sm font-bold uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5"
-                  style={{ borderColor: "#ef4444", color: "#ef4444", backgroundColor: "transparent" }}
-                >
+                <button onClick={onDelete} className="btn btn-danger h-12 px-5 text-sm font-bold uppercase tracking-widest">
                   <Trash2 className="h-4 w-4" /> Delete
                 </button>
               ) : (
                 <span />
               )}
-              <div className="flex flex-wrap items-center gap-3">
-              <button
-                onClick={onEdit}
-                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-8 py-3 text-sm font-bold uppercase tracking-widest text-[var(--text)] transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              >
-                Edit Ticket
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => {
-                    onClose();
-                    onApprove?.();
-                  }}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--button-bg)] px-8 py-3 text-sm font-bold uppercase tracking-widest text-[var(--button-text)] transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-                >
-                  Start Review
+              <div className="flex items-center gap-3">
+                <button onClick={onEdit} className="btn btn-ghost h-12 px-6 text-sm font-bold uppercase tracking-widest">
+                  Edit Ticket
                 </button>
-              )}
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      onClose();
+                      onApprove?.();
+                    }}
+                    className="btn btn-primary h-12 px-6 text-sm font-bold uppercase tracking-widest"
+                  >
+                    Start Review
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
+
+        <div className="mt-8 pt-8 border-t" style={{ borderColor: "var(--border)" }}>
+          <TicketActivity ticketId={ticket.id} currentUserId={currentUserId} isAdmin={isAdmin} />
+        </div>
       </div>
+
+      <TicketAiAssistant
+        isOpen={aiOpen}
+        onClose={() => setAiOpen(false)}
+        ticketId={ticket.id}
+        ticketTitle={ticket.title}
+      />
     </div>
   );
 };

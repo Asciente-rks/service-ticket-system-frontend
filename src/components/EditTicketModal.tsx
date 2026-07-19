@@ -1,8 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { Video, ChevronDown } from "lucide-react";
 import api from "../services/api";
-import type { Ticket, TicketStatus, User, Role } from "../types";
+import { getApiErrorMessage } from "../utils/apiError";
+import type { Ticket, TicketStatus, User, Role, PlatformVersion } from "../types";
 import { getLoggedInUser } from "../utils/auth";
 import { getStatusMeta } from "../utils/labelStyles";
+import AssigneeMultiSelect from "./AssigneeMultiSelect";
+import PlatformVersionMultiSelect from "./PlatformVersionMultiSelect";
 
 interface Props {
   isOpen: boolean;
@@ -24,13 +28,18 @@ const EditTicketModal = ({
   roles,
 }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | "assign" | null>(null);
+  const [error, setError] = useState("");
+  const [openDropdown, setOpenDropdown] = useState<"priority" | "status" | null>(null);
+  const [platformVersions, setPlatformVersions] = useState<PlatformVersion[]>([]);
+  const [loadingPv, setLoadingPv] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    jamUrl: "",
     priority: "Medium",
     statusId: "",
-    assigneeId: "",
+    assigneeIds: [] as string[],
+    platformVersionIds: [] as string[],
   });
   const dropdownGroupRef = useRef<HTMLDivElement>(null);
 
@@ -38,25 +47,81 @@ const EditTicketModal = ({
 
   useEffect(() => {
     if (isOpen && ticket) {
-      setFormData({
-        title: ticket.title || "",
-        description: ticket.description || "",
-        priority: (ticket.priority as any) || "Medium",
-        statusId: String(
-          (ticket as any).statusId ||
-            (ticket as any).status_id ||
-            (ticket as any).status?.id ||
-            "",
-        ),
-        assigneeId: String(
+      setError("");
+      // The ticket from the API exposes `status` as a NAME (e.g. "Open"), not an
+      // id. Resolve the current statusId by matching that name against the
+      // statuses list so the dropdown shows the real status and we never submit
+      // a null statusId (which previously caused "Input validation failed").
+      const statusName =
+        typeof (ticket as any).status === "string"
+          ? (ticket as any).status
+          : (ticket as any).status?.name;
+      const resolvedStatusId =
+        (ticket as any).statusId ||
+        (ticket as any).status_id ||
+        (ticket as any).status?.id ||
+        (statusName ? statuses.find((s) => s.name === statusName)?.id : "") ||
+        "";
+
+      // Prefer the full assignee set; fall back to the legacy single assignee.
+      const assigneeObjs = (ticket as any).assignees as { id: string }[] | undefined;
+      let assigneeIds: string[] = Array.isArray(assigneeObjs) ? assigneeObjs.map((a) => String(a.id)) : [];
+      if (assigneeIds.length === 0) {
+        const single = String(
           (ticket as any).assigneeId ||
             (ticket as any).assignedTo ||
             (ticket as any).assigned_to ||
             (ticket as any).assignee?.id ||
             "",
-        ),
+        );
+        if (single) assigneeIds = [single];
+      }
+
+      // Prefer the full platform/version set; fall back to the legacy single value.
+      const pvObjs = (ticket as any).platformVersions as { id: string }[] | undefined;
+      let platformVersionIds: string[] = Array.isArray(pvObjs) ? pvObjs.map((p) => String(p.id)) : [];
+      if (platformVersionIds.length === 0) {
+        const singlePv = String(
+          (ticket as any).platformVersionId || (ticket as any).platformVersion?.id || "",
+        );
+        if (singlePv) platformVersionIds = [singlePv];
+      }
+
+      setFormData({
+        title: ticket.title || "",
+        description: ticket.description || "",
+        jamUrl: (ticket as any).jamUrl || "",
+        priority: (ticket.priority as any) || "Medium",
+        statusId: String(resolvedStatusId),
+        assigneeIds,
+        platformVersionIds,
       });
     }
+  }, [isOpen, ticket, statuses]);
+
+  // Load the platform/version catalog for the ticket's collection.
+  useEffect(() => {
+    let active = true;
+    const collectionId = (ticket as any)?.collectionId || (ticket as any)?.collection_id;
+    if (!isOpen || !collectionId) {
+      setPlatformVersions([]);
+      return;
+    }
+    setLoadingPv(true);
+    api
+      .get(`/collections/${collectionId}/platform-versions`)
+      .then((res) => {
+        if (active) setPlatformVersions(Array.isArray(res.data) ? res.data : []);
+      })
+      .catch(() => {
+        if (active) setPlatformVersions([]);
+      })
+      .finally(() => {
+        if (active) setLoadingPv(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [isOpen, ticket]);
 
   useEffect(() => {
@@ -84,12 +149,6 @@ const EditTicketModal = ({
     };
   }, []);
 
-  const superAdminRoleId = roles.find((r) =>
-    ["superadmin", "super admin"].includes(r.name.toLowerCase()),
-  )?.id;
-  const adminRoleId = roles.find((r) =>
-    ["admin", "administrator"].includes(r.name.toLowerCase()),
-  )?.id;
   const developerRoleId = roles.find((r) =>
     ["developer", "dev", "devs"].includes(r.name.toLowerCase()),
   )?.id;
@@ -100,26 +159,6 @@ const EditTicketModal = ({
   const actorRoleId = currentUser?.roleId
     ? String(currentUser.roleId).toLowerCase()
     : "";
-
-  const isSuperAdmin = !!(
-    superAdminRoleId && actorRoleId === String(superAdminRoleId).toLowerCase()
-  );
-  const isRegularAdmin = !!(
-    adminRoleId && actorRoleId === String(adminRoleId).toLowerCase()
-  );
-  const isAdmin = isSuperAdmin || isRegularAdmin;
-
-  const isReporter = !!(
-    currentUser?.id &&
-    ticket &&
-    String(
-      (ticket as any).reportedBy ||
-        (ticket as any).reported_by ||
-        (ticket as any).reporter?.id,
-    ).toLowerCase() === String(currentUser.id).toLowerCase()
-  );
-
-  const canEditCoreDetails = isAdmin || isReporter;
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -153,198 +192,206 @@ const EditTicketModal = ({
     }
   };
 
+  // Users this actor may assign to (role rules). Computed before any early return.
+  const filteredUsers = useMemo(() => {
+    return users.filter((u) => {
+      if (!currentUser) return false;
+
+      const targetUserId = String(u.id).toLowerCase();
+      const targetUserRoleId = String(u.roleId).toLowerCase();
+      const currentUserId = String(currentUser.id).toLowerCase();
+
+      const currentRole =
+        roles
+          .find((r) => String(r.id).toLowerCase() === actorRoleId)
+          ?.name.toLowerCase() || "";
+
+      if (currentRole === "superadmin" || currentRole === "super admin") {
+        return targetUserId !== currentUserId;
+      }
+
+      const isTargetDev =
+        developerRoleId && targetUserRoleId === String(developerRoleId).toLowerCase();
+      const isTargetTester =
+        testerRoleId && targetUserRoleId === String(testerRoleId).toLowerCase();
+      const isTargetInWorkerPool = isTargetDev || isTargetTester;
+
+      if (currentRole === "admin") return isTargetInWorkerPool;
+      if (["developer", "dev", "tester", "qa"].includes(currentRole)) return isTargetInWorkerPool;
+      return false;
+    });
+  }, [users, roles, currentUser, actorRoleId, developerRoleId, testerRoleId]);
+
+  // Assignable list = role-permitted users PLUS anyone already assigned (so the
+  // existing roster is always visible/removable even if outside the actor's
+  // normal pool). The backend only re-validates NEWLY added assignees.
+  const selectableUsers = useMemo(() => {
+    const map = new Map<string, User>();
+    for (const u of filteredUsers) map.set(String(u.id), u);
+    const existing = (ticket as any)?.assignees as { id: string; name: string; email: string }[] | undefined;
+    if (Array.isArray(existing)) {
+      for (const a of existing) {
+        if (!map.has(String(a.id))) {
+          const full = users.find((u) => String(u.id) === String(a.id));
+          map.set(String(a.id), full || { id: a.id, name: a.name, email: a.email, roleId: null });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [filteredUsers, users, ticket]);
+
   if (!isOpen) return null;
-
-  const filteredUsers = users.filter((u) => {
-    if (!currentUser) return false;
-
-    const targetUserId = String(u.id).toLowerCase();
-    const targetUserRoleId = String(u.roleId).toLowerCase();
-    const currentUserId = String(currentUser.id).toLowerCase();
-
-    const currentRole =
-      roles
-        .find((r) => String(r.id).toLowerCase() === actorRoleId)
-        ?.name.toLowerCase() || "";
-
-    if (currentRole === "superadmin" || currentRole === "super admin") {
-      return targetUserId !== currentUserId;
-    }
-
-    const isTargetDev =
-      developerRoleId &&
-      targetUserRoleId === String(developerRoleId).toLowerCase();
-    const isTargetTester =
-      testerRoleId && targetUserRoleId === String(testerRoleId).toLowerCase();
-    const isTargetInWorkerPool = isTargetDev || isTargetTester;
-
-    if (currentRole === "admin") {
-      return isTargetInWorkerPool;
-    }
-
-    if (["developer", "dev", "tester", "qa"].includes(currentRole)) {
-      return isTargetInWorkerPool;
-    }
-
-    return false;
-  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+
+    if (!formData.title.trim()) { setError("Title is required."); return; }
+    if (!formData.description.trim()) { setError("Description is required."); return; }
+
     setIsSubmitting(true);
 
     try {
-      const payload = {
+      // Only send statusId when we actually have one — never null (the API
+      // rejects a null statusId, which surfaced as a generic validation error).
+      const payload: Record<string, any> = {
         title: formData.title,
         description: formData.description,
+        jamUrl: formData.jamUrl.trim() || null,
         priority: formData.priority,
-        statusId: formData.statusId || null,
-        assigneeId: formData.assigneeId || null,
+        assigneeIds: formData.assigneeIds,
+        platformVersionIds: formData.platformVersionIds,
       };
+      if (formData.statusId) payload.statusId = formData.statusId;
 
       await api.patch(`/tickets/${ticket.id}`, payload);
       onSuccess();
       onClose();
     } catch (err: any) {
       console.error("UPDATE TICKET ERROR:", err.response?.data);
-      alert(err.response?.data?.message || "Failed to update ticket.");
+      setError(getApiErrorMessage(err, "Failed to update ticket."));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const labelCls = "block text-[10px] font-black uppercase tracking-[0.3em] mb-2";
+  const triggerStyle = {
+    backgroundColor: "var(--input)",
+    border: "1px solid var(--border)",
+    color: "var(--input-text)",
+  } as const;
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div
-        className="w-full max-w-4xl rounded-[2rem] border p-8 shadow-2xl"
-        style={{
-          backgroundColor: "var(--surface)",
-          borderColor: "var(--border)",
-          color: "var(--text)",
-        }}
-      >
+    <div className="modal-overlay" style={{ zIndex: 120 }}>
+      <div className="modal-panel max-w-4xl rounded-[2rem] p-8">
         <div className="mb-6 border-b border-[var(--border)] pb-4">
-          <h2 className="text-2xl font-black uppercase tracking-[0.25em]" style={{ color: "var(--text)" }}>
-            Edit Ticket
+          <h2 className="text-2xl font-bold tracking-tight" style={{ color: "var(--text)" }}>
+            Edit ticket
           </h2>
-          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
-            Update ticket details and assignments.
+          <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
+            Update ticket details, assignees and platform/version.
           </p>
         </div>
+
+        {error && (
+          <div
+            className="mb-5 rounded-xl border px-4 py-3 text-sm animate-slide-down"
+            style={{ borderColor: "#f87171", backgroundColor: "rgba(248,113,113,0.1)", color: "#ef4444" }}
+          >
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.6fr_1fr]">
             <div className="space-y-5">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Title
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Title</label>
                 <input
                   required
-                  disabled={!canEditCoreDetails}
-                  className="w-full rounded-3xl px-4 py-3 outline-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
+                  className="field px-4 py-3 outline-none"
                   value={formData.title}
-                  onChange={(e) =>
-                    setFormData({ ...formData, title: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Description
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Description</label>
                 <textarea
                   required
-                  disabled={!canEditCoreDetails}
                   rows={4}
-                  className="w-full rounded-3xl px-4 py-3 outline-none resize-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
+                  className="field px-4 py-3 outline-none resize-y"
                   value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
+              </div>
+
+              <div>
+                <label className={`${labelCls} flex items-center gap-1.5`} style={{ color: "var(--muted)" }}>
+                  <Video className="h-3.5 w-3.5" /> Jam recording URL
+                  <span className="font-medium tracking-normal lowercase opacity-70">· optional</span>
+                </label>
+                <div className="relative">
+                  <Video className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "var(--muted)" }} />
+                  <input
+                    type="url"
+                    placeholder="https://jam.dev/c/your-recording"
+                    className="field pl-10 pr-4 py-3 outline-none"
+                    value={formData.jamUrl}
+                    onChange={(e) => setFormData({ ...formData, jamUrl: e.target.value })}
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-4" ref={dropdownGroupRef}>
-              <div className="relative">
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Assign To
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setOpenDropdown((prev) => (prev === "assign" ? null : "assign"))}
-                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
-                >
-                  {formData.assigneeId
-                    ? users.find((user) => String(user.id) === formData.assigneeId)?.name
-                    : "Select Assignee"}
-                </button>
-                {openDropdown === "assign" && (
-                  <div
-                    className="absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-3xl border shadow-2xl z-20"
-                    style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
-                  >
-                    {filteredUsers.map((user) => (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, assigneeId: String(user.id) });
-                          setOpenDropdown(null);
-                        }}
-                        className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
-                        style={{ color: "var(--text)" }}
-                      >
-                        {user.name} ({user.email})
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Assign To</label>
+                <AssigneeMultiSelect
+                  users={selectableUsers}
+                  selectedIds={formData.assigneeIds}
+                  onChange={(ids) => setFormData({ ...formData, assigneeIds: ids })}
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Platform / Version</label>
+                <PlatformVersionMultiSelect
+                  options={platformVersions}
+                  selectedIds={formData.platformVersionIds}
+                  onChange={(ids) => setFormData({ ...formData, platformVersionIds: ids })}
+                  loading={loadingPv}
+                  disabled={isSubmitting}
+                  emptyHint="No platforms/versions yet — add them on the Collections page."
+                />
               </div>
 
               <div className="relative">
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Status
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Status</label>
                 <button
                   type="button"
                   onClick={() => setOpenDropdown((prev) => (prev === "status" ? null : "status"))}
-                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
+                  className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
                   style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
+                    ...triggerStyle,
                     color: formData.statusId
-                      ? getStatusColor(
-                          statuses.find((s) => String(s.id) === formData.statusId)?.name || ""
-                        )
+                      ? getStatusColor(statuses.find((s) => String(s.id) === formData.statusId)?.name || "")
                       : "var(--input-text)",
                   }}
                 >
-                  {formData.statusId
-                    ? statuses.find((s) => String(s.id) === formData.statusId)?.name
-                    : "Select Status"}
+                  <span>
+                    {formData.statusId
+                      ? statuses.find((s) => String(s.id) === formData.statusId)?.name
+                      : "Select Status"}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "status" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
                 </button>
                 {openDropdown === "status" && (
                   <div
-                    className="absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-3xl shadow-2xl z-20"
-                    style={{ backgroundColor: "var(--surface)" }}
+                    className="dropdown-menu absolute left-0 right-0 mt-2 max-h-60 overflow-auto rounded-2xl border shadow-2xl z-20 p-1"
+                    style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
                   >
                     {statuses.map((s) => {
                       const statusMeta = getStatusMeta(s.name);
@@ -356,10 +403,8 @@ const EditTicketModal = ({
                             setFormData({ ...formData, statusId: String(s.id) });
                             setOpenDropdown(null);
                           }}
-                          className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
-                          style={{
-                            color: getStatusColor(s.name),
-                          }}
+                          className="w-full text-left px-3 py-2.5 text-sm transition dropdown-option"
+                          style={{ color: getStatusColor(s.name) }}
                         >
                           <span className="flex items-center gap-2">
                             <span>{statusMeta.icon}</span>
@@ -373,24 +418,19 @@ const EditTicketModal = ({
               </div>
 
               <div className="relative">
-                <label className="block text-[10px] font-black uppercase tracking-[0.35em] mb-2" style={{ color: "var(--muted)" }}>
-                  Priority
-                </label>
+                <label className={labelCls} style={{ color: "var(--muted)" }}>Priority</label>
                 <button
                   type="button"
                   onClick={() => setOpenDropdown((prev) => (prev === "priority" ? null : "priority"))}
-                  className="w-full rounded-3xl px-4 py-3 text-left outline-none transition"
-                  style={{
-                    backgroundColor: "var(--input)",
-                    border: "1px solid var(--border)",
-                    color: "var(--input-text)",
-                  }}
+                  className="field flex w-full items-center justify-between px-4 py-3 text-left outline-none"
+                  style={{ ...triggerStyle, color: getPriorityColor(formData.priority) }}
                 >
-                  {formData.priority || "Select Priority"}
+                  <span>{formData.priority || "Select Priority"}</span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${openDropdown === "priority" ? "rotate-180" : ""}`} style={{ color: "var(--muted)" }} />
                 </button>
                 {openDropdown === "priority" && (
                   <div
-                    className="absolute left-0 right-0 mt-2 rounded-3xl border shadow-2xl z-20"
+                    className="dropdown-menu absolute left-0 right-0 mt-2 rounded-2xl border shadow-2xl z-20 p-1"
                     style={{ backgroundColor: "var(--surface)", borderColor: "var(--border)" }}
                   >
                     {[
@@ -405,10 +445,8 @@ const EditTicketModal = ({
                           setFormData({ ...formData, priority: option.value });
                           setOpenDropdown(null);
                         }}
-                        className="w-full text-left px-4 py-3 text-sm transition dropdown-option"
-                        style={{
-                          color: getPriorityColor(option.value),
-                        }}
+                        className="w-full text-left px-3 py-2.5 text-sm transition dropdown-option"
+                        style={{ color: getPriorityColor(option.value) }}
                       >
                         {option.label}
                       </button>
@@ -420,30 +458,11 @@ const EditTicketModal = ({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3 mt-8">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              style={{
-                backgroundColor: "transparent",
-                border: "1px solid var(--border)",
-                color: "var(--text)",
-              }}
-            >
+            <button type="button" onClick={onClose} className="btn btn-ghost flex-1 px-6 py-3 text-sm uppercase tracking-widest font-bold">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 rounded-3xl px-6 py-3 font-black uppercase tracking-widest transition duration-200 ease-out transform hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/10"
-              style={{
-                backgroundColor: "var(--button-bg)",
-                color: "var(--button-text)",
-                border: "1px solid var(--border)",
-                opacity: isSubmitting ? 0.6 : 1,
-              }}
-            >
-              {isSubmitting ? "Saving..." : "Save Changes"}
+            <button type="submit" disabled={isSubmitting} className="btn btn-primary flex-1 px-6 py-3 text-sm uppercase tracking-widest font-bold">
+              {isSubmitting ? (<><span className="ui-spinner h-4 w-4" /> Saving…</>) : "Save Changes"}
             </button>
           </div>
         </form>

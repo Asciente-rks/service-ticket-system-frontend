@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check } from "lucide-react";
+import { Moon, Sun, Home, Users, Bell, LogOut, Building2, Check, MessagesSquare, Sparkles, FolderKanban, ChevronsUpDown } from "lucide-react";
 import { getLoggedInUser, logout } from "../utils/auth";
 import api from "../services/api";
 import type { User, Role, Organization, NotificationItem } from "../types";
 import { useTheme } from "../theme";
-import Logo from "../assets/Logo.png";
-import LogoNoNameDark from "../assets/LogoNoNameDark.png";
+import Logo from "../assets/NexusTrack_Logo_Light.png";
+import LogoNoNameDark from "../assets/NexusTrack_Logo_Dark.png";
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const { theme, toggleTheme } = useTheme();
@@ -18,6 +18,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [org, setOrg] = useState<Organization | null>(null);
+  const [dmUnread, setDmUnread] = useState(0);
 
   const profileRef = useRef<HTMLDivElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       }).catch(() => {});
     }
   }, []);
+
+  // Poll unread direct-message count for the sidebar badge.
+  useEffect(() => {
+    let active = true;
+    const tick = () => {
+      api.get("/conversations/unread-count")
+        .then((res) => { if (active) setDmUnread(Number(res.data?.count) || 0); })
+        .catch(() => {});
+    };
+    tick();
+    const id = setInterval(tick, 20000);
+    return () => { active = false; clearInterval(id); };
+  }, [location.pathname]);
 
   const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
 
@@ -89,16 +103,56 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const handleNotificationClick = async (n: NotificationItem) => {
     setIsNotificationsOpen(false);
     if (!n.read) markRead(n.id);
-    if (n.ticketId) navigate(`/dashboard?ticketId=${n.ticketId}`);
+    const ticketId = (n as any).ticketId ?? (n as any).ticket_id ?? (n as any).ticket?.id;
+    if (ticketId) navigate(`/dashboard?ticketId=${ticketId}`);
   };
 
+  // Sticky project space: the last opened collection becomes a first-class
+  // sidebar entry, so switching tabs never forces re-picking a collection.
+  const activeCollection = useMemo(() => {
+    try {
+      const raw = localStorage.getItem("activeCollection");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed?.id && parsed?.name ? { id: String(parsed.id), name: String(parsed.name) } : null;
+    } catch {
+      return null;
+    }
+    // location dep: re-read after navigation (e.g. entering another collection)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, location.search]);
+
+  // Collections are the high-level workspace gate (chosen right after login and
+  // switched from the sidebar header), so they're no longer a peer nav item.
+  // All nav items operate WITHIN the selected collection.
   const menuItems = useMemo(() => {
-    const items = [{ name: "Dashboard", path: "/dashboard", icon: Home }];
+    const items: { name: string; path: string; icon: typeof Home; badge?: number }[] = [
+      {
+        name: "Dashboard",
+        path: activeCollection ? `/dashboard?collection=${activeCollection.id}` : "/collections?all=1",
+        icon: Home,
+      },
+      { name: "Conversations", path: "/conversations", icon: MessagesSquare, badge: dmUnread },
+      { name: "AI Assistant", path: "/ai", icon: Sparkles },
+    ];
     if (isAdmin) items.push({ name: "Team", path: "/users", icon: Users });
     return items;
-  }, [isAdmin]);
+  }, [isAdmin, dmUnread, activeCollection]);
 
   const roleName = roles.find((r) => String(r.id).toLowerCase() === String(user?.roleId).toLowerCase())?.name || "Member";
+
+  // Clicking the logo always takes the user home to the dashboard (their active
+  // collection's board), resetting any in-page filters/modals. Falls back to the
+  // Collections picker when no collection has been opened yet.
+  const goHome = () => {
+    setIsProfileOpen(false);
+    setIsNotificationsOpen(false);
+    if (activeCollection) {
+      navigate(`/dashboard?collection=${activeCollection.id}`);
+    } else {
+      navigate("/collections?all=1");
+    }
+  };
 
   return (
     <div className="min-h-screen flex app-shell protected-shell">
@@ -118,19 +172,63 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           </button>
         </div>
 
+        {/* Active collection — the high-level workspace. Click to switch (the
+            collection scopes the dashboard, AI assistant and everything inside it). */}
+        {!isCollapsed ? (
+          <div className="px-4 pb-3">
+            <button
+              onClick={() => navigate("/collections?all=1")}
+              className="group flex w-full cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-left transition hover:border-[var(--accent)]"
+              style={{ borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+              title="Switch collection"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent)" }}>
+                <FolderKanban className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>Collection</span>
+                <span className="block truncate text-sm font-bold" style={{ color: "var(--text)" }}>{activeCollection?.name || "Choose a collection"}</span>
+              </span>
+              <ChevronsUpDown className="h-4 w-4 shrink-0 transition group-hover:text-[var(--accent)]" style={{ color: "var(--muted)" }} />
+            </button>
+          </div>
+        ) : (
+          <div className="px-3 pb-2 flex justify-center">
+            <button
+              onClick={() => navigate("/collections?all=1")}
+              title="Switch collection"
+              className="grid h-10 w-10 cursor-pointer place-items-center rounded-xl transition hover:bg-[var(--accent-soft)]"
+              style={{ color: "var(--accent)" }}
+            >
+              <FolderKanban className="h-[18px] w-[18px]" />
+            </button>
+          </div>
+        )}
+
         <nav className="flex-1 px-3 pt-3 space-y-1.5">
           {menuItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const basePath = item.path.split("?")[0];
+            const isActive = location.pathname === basePath;
             const Icon = item.icon;
             return (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 ${isCollapsed ? "justify-center" : ""} px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium`}
+                className={`relative flex items-center gap-3 ${isCollapsed ? "justify-center" : ""} px-3.5 py-2.5 rounded-xl transition-all text-sm font-medium`}
                 style={isActive ? { backgroundColor: "var(--accent-soft)", color: "var(--accent)" } : { color: "var(--muted)" }}
               >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
-                {!isCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+                <span className="relative shrink-0">
+                  <Icon className="h-[18px] w-[18px]" />
+                  {isCollapsed && !!item.badge && item.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 h-2.5 w-2.5 rounded-full ring-2" style={{ backgroundColor: "#ef4444", boxShadow: "0 0 0 2px var(--surface)" }} />
+                  )}
+                </span>
+                {!isCollapsed && <span className="whitespace-nowrap flex-1">{item.name}</span>}
+                {!isCollapsed && !!item.badge && item.badge > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: "#ef4444" }}>
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -153,7 +251,17 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex-1 flex flex-col">
         <header className="app-header h-16 border-b flex items-center justify-between px-6" style={{ borderColor: "var(--border)", backgroundColor: "var(--surface)" }}>
           <div className="flex items-center gap-3">
-            <img src={theme === "dark" ? LogoNoNameDark : Logo} alt="Logo" className="h-9 w-auto object-contain" />
+            <button
+              type="button"
+              onClick={goHome}
+              className="flex cursor-pointer items-center rounded-lg bg-transparent border-0 p-0 transition hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+              aria-label="Go to dashboard"
+              title="Back to dashboard"
+            >
+              <span className="brand-logo brand-logo--header pointer-events-none">
+                <img src={theme === "dark" ? LogoNoNameDark : Logo} alt="NexusTrack" />
+              </span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">

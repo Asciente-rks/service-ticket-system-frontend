@@ -22,14 +22,57 @@ export interface Organization {
   createdAt?: string;
 }
 
+export interface TicketUser {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface TicketPlatformVersion {
+  id: string;
+  platform: string;
+  version: string;
+  label: string;
+}
+
 export interface Ticket {
   id: string;
   title: string;
   description: string;
+  jamUrl?: string | null;
   statusId: string;
   priority: "Low" | "Medium" | "High";
   createdAt: string;
   userId: string;
+  collectionId?: string | null;
+  collectionName?: string | null;
+  /** Primary/lifecycle owner (first assignee). */
+  assignee?: TicketUser | null;
+  /** Full set of assignees (includes the primary). */
+  assignees?: TicketUser[];
+  platformVersionId?: string | null;
+  platformVersion?: TicketPlatformVersion | null;
+  platformVersions?: TicketPlatformVersion[];
+}
+
+export interface PlatformVersion {
+  id: string;
+  collectionId: string;
+  platform: string;
+  version: string;
+  label: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Collection {
+  id: string;
+  name: string;
+  description: string | null;
+  ticketCount: number;
+  openCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface TicketStatus {
@@ -42,5 +85,89 @@ export interface NotificationItem {
   message: string;
   read: boolean;
   ticketId?: string;
+  createdAt: string;
+}
+
+export interface CommentAuthor {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export interface TicketComment {
+  id: string;
+  ticketId: string;
+  parentId?: string | null;
+  body: string;
+  createdAt: string;
+  author: CommentAuthor;
+  replies?: TicketComment[];
+}
+
+export interface TicketEvent {
+  id: string;
+  type: "reported" | "assigned" | "reassigned" | "status_changed" | "approved" | "rejected" | string;
+  fromValue?: string | null;
+  toValue?: string | null;
+  createdAt: string;
+  actor?: { id: string; name: string } | null;
+}
+
+export interface Conversation {
+  id: string;
+  other: { id: string; name: string; email: string };
+  lastMessageText: string | null;
+  lastMessageAt: string | null;
+  lastMessageMine: boolean;
+  unreadCount: number;
+  createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+  sender: { id: string; name: string; email: string } | null;
+}
+
+export interface AiTicketRef {
+  id: string;
+  title: string;
+  status?: string;
+  priority?: string;
+  collectionId?: string | null;
+}
+
+export interface AiConversation {
+  id: string;
+  title: string;
+  collectionId?: string | null;
+  lastMessageAt: string | null;
+  lastMessagePreview: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiDuplicateGroup {
+  reason: string;
+  confidence?: "high" | "medium";
+  tickets: AiTicketRef[];
+}
+
+export interface AiMessage {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant";
+  body: string;
+  ticketRefs: AiTicketRef[];
+  meta: {
+    provider?: string;
+    model?: string;
+    error?: boolean;
+    duplicateGroups?: AiDuplicateGroup[];
+  } | null;
   createdAt: string;
 }

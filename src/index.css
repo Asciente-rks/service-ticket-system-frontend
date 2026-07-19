@@ -4,58 +4,66 @@
 }
 @import "tailwindcss";
 
+/* Brand palette derived from the NexusTrack logo (cyan/teal #0090b4 + navy).
+   Dark surfaces are tuned to the dark logo's navy background so the logo blends. */
 :root {
   color-scheme: dark;
-  --bg: #050608;
-  --text: #f4f6fb;
-  --surface: #0d1016;
-  --card: #11151d;
-  --border: rgba(255, 255, 255, 0.12);
-  --input: #11151d;
-  --input-text: #f4f6fb;
-  --button-bg: #6366f1;
+  --bg: #0a1120;
+  --text: #eaf2f8;
+  --surface: #111b2e;
+  --card: #152138;
+  --border: rgba(255, 255, 255, 0.10);
+  --input: #152138;
+  --input-text: #eaf2f8;
+  --button-bg: #1099bd;
   --button-text: #ffffff;
-  --muted: #9aa3b2;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-soft: rgba(99, 102, 241, 0.14);
-  --ring: rgba(99, 102, 241, 0.45);
+  --muted: #8fa3b8;
+  --accent: #1099bd;
+  --accent-hover: #15aacf;
+  --accent-soft: rgba(34, 184, 212, 0.16);
+  --ring: rgba(34, 184, 212, 0.45);
+  --brand-from: #0e7d9b;
+  --brand-to: #1fc3d6;
 }
 
 html.theme-light {
   color-scheme: light;
-  --bg: #f4f6fb;
-  --text: #0f172a;
+  --bg: #eef4f8;
+  --text: #0d1f29;
   --surface: #ffffff;
   --card: #ffffff;
-  --border: rgba(15, 23, 42, 0.12);
+  --border: rgba(13, 31, 41, 0.12);
   --input: #ffffff;
-  --input-text: #0f172a;
-  --button-bg: #4f46e5;
+  --input-text: #0d1f29;
+  --button-bg: #0c7a98;
   --button-text: #ffffff;
-  --muted: #64748b;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
-  --accent-soft: rgba(79, 70, 229, 0.10);
-  --ring: rgba(79, 70, 229, 0.35);
+  --muted: #5b7080;
+  --accent: #0c7a98;
+  --accent-hover: #0a6781;
+  --accent-soft: rgba(8, 145, 178, 0.10);
+  --ring: rgba(8, 145, 178, 0.32);
+  --brand-from: #0e7d9b;
+  --brand-to: #1fc3d6;
 }
 
 html.theme-dark {
   color-scheme: dark;
-  --bg: #050608;
-  --text: #f4f6fb;
-  --surface: #0d1016;
-  --card: #11151d;
-  --border: rgba(255, 255, 255, 0.12);
-  --input: #11151d;
-  --input-text: #f4f6fb;
-  --button-bg: #6366f1;
+  --bg: #0a1120;
+  --text: #eaf2f8;
+  --surface: #111b2e;
+  --card: #152138;
+  --border: rgba(255, 255, 255, 0.10);
+  --input: #152138;
+  --input-text: #eaf2f8;
+  --button-bg: #1099bd;
   --button-text: #ffffff;
-  --muted: #9aa3b2;
-  --accent: #6366f1;
-  --accent-hover: #818cf8;
-  --accent-soft: rgba(99, 102, 241, 0.16);
-  --ring: rgba(99, 102, 241, 0.45);
+  --muted: #8fa3b8;
+  --accent: #15a8cc;
+  --accent-hover: #2cc0e2;
+  --accent-soft: rgba(34, 184, 212, 0.16);
+  --ring: rgba(34, 184, 212, 0.45);
+  --brand-from: #0e7d9b;
+  --brand-to: #1fc3d6;
 }
 
 .accent-btn {
@@ -138,14 +146,13 @@ body {
 }
 
 .theme-dark .protected-shell {
-  --bg: #111318;
-  --surface: #171b20;
-  --border: rgba(255,255,255,0.08);
-  --input: #1c2026;
-  --input-text: #ffffff;
-  --button-bg: #171b20;
+  --bg: #0a1120;
+  --surface: #111b2e;
+  --border: rgba(255,255,255,0.09);
+  --input: #152138;
+  --input-text: #eaf2f8;
   --button-text: #ffffff;
-  --muted: #9a9a9a;
+  --muted: #8fa3b8;
 }
 
 .app-input {
@@ -225,4 +232,278 @@ html.theme-light .dropdown-option:hover {
 html.theme-dark .dropdown-option:hover {
   background-color: rgba(255,255,255,0.04);
 }
+
+/* =========================================================================
+   Design system v2 — motion, buttons, fields, modals, cards.
+   Theme-aware via the CSS variables defined above. Additive: existing classes
+   keep working; these add smoother interactions across the whole UI.
+   ========================================================================= */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur: 220ms;
+  --dur-slow: 360ms;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.10);
+  --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.18);
+  --shadow-glow: 0 12px 32px var(--accent-soft);
+}
+html.theme-dark {
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 30px 70px rgba(0, 0, 0, 0.6);
+}
+
+@keyframes ui-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ui-pop-in {
+  0% { opacity: 0; transform: translateY(12px) scale(0.97); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-slide-down {
+  0% { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-slide-up {
+  0% { opacity: 0; transform: translateY(10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+@keyframes ui-shimmer { 100% { transform: translateX(100%); } }
+@keyframes ui-pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--ring); }
+  70% { box-shadow: 0 0 0 8px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Entrance helpers (used on modals, dropdowns, toasts, lists) */
+.animate-overlay { animation: ui-overlay-in var(--dur) var(--ease-out) both; }
+.animate-pop { animation: ui-pop-in var(--dur-slow) var(--ease-spring) both; }
+.animate-slide-down { animation: ui-slide-down var(--dur) var(--ease-out) both; }
+.animate-slide-up { animation: ui-slide-up var(--dur) var(--ease-out) both; }
+.animate-fade { animation: ui-fade-in var(--dur) var(--ease-out) both; }
+.stagger > * { animation: ui-slide-up var(--dur) var(--ease-out) both; }
+.stagger > *:nth-child(1) { animation-delay: 40ms; }
+.stagger > *:nth-child(2) { animation-delay: 80ms; }
+.stagger > *:nth-child(3) { animation-delay: 120ms; }
+.stagger > *:nth-child(4) { animation-delay: 160ms; }
+.stagger > *:nth-child(5) { animation-delay: 200ms; }
+.stagger > *:nth-child(6) { animation-delay: 240ms; }
+
+/* Generic modal scaffolding */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(2, 6, 23, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: ui-overlay-in var(--dur) var(--ease-out) both;
+}
+.modal-panel {
+  width: 100%;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  animation: ui-pop-in var(--dur-slow) var(--ease-spring) both;
+}
+
+/* Button system — consistent radius, hover lift, active press, focus ring */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  line-height: 1;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out),
+    opacity var(--dur) var(--ease-out);
+}
+.btn:hover:not(:disabled) { transform: translateY(-1px); }
+.btn:active:not(:disabled) { transform: translateY(0) scale(0.985); }
+.btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: var(--shadow-glow);
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-soft {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+}
+.btn-soft:hover:not(:disabled) { box-shadow: var(--shadow-glow); }
+.btn-danger {
+  background: transparent;
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+}
+.btn-danger-solid {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+.btn-danger-solid:hover:not(:disabled) {
+  background: #dc2626;
+  border-color: #dc2626;
+  box-shadow: 0 12px 32px rgba(239, 68, 68, 0.3);
+}
+
+/* Unified form field with animated focus ring */
+.field {
+  width: 100%;
+  background: var(--input);
+  color: var(--input-text);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  transition: border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    background-color var(--dur) var(--ease-out);
+}
+.field::placeholder { color: var(--muted); opacity: 0.8; }
+.field:hover:not(:disabled):not(:focus) { border-color: var(--accent); }
+.field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+.field:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Hover lift for clickable cards */
+.hover-lift {
+  transition: transform var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
+  will-change: transform;
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--accent) !important;
+}
+
+/* Animated dropdown container (wraps the existing .dropdown-option items) */
+.dropdown-menu { animation: ui-slide-down var(--dur) var(--ease-out) both; transform-origin: top; }
+
+/* Spinner */
+.ui-spinner {
+  border-radius: 9999px;
+  border: 2.5px solid var(--accent);
+  border-top-color: transparent;
+  animation: ui-spin 0.7s linear infinite;
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+  animation: ui-shimmer 1.4s infinite;
+}
+
+/* Toggle/segmented smoothness already inline; add active-press feel to links */
+.app-shell a, .app-shell button { transition-property: color, background-color, border-color, transform, box-shadow, opacity; }
+
+/* Custom scrollbars (subtle, theme-aware) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+  background-clip: padding-box;
+}
+
+::selection { background: var(--accent-soft); color: var(--text); }
+
+/* Refine the existing primary auth button with press + keyboard focus */
+.accent-btn:active:not(:disabled) { transform: translateY(0) scale(0.985); }
+.accent-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* =========================================================================
+   Brand logo crop. The NexusTrack PNGs are square (2048x2048) with the
+   wordmark centered in a ~418px-tall band, so plain <img> renders tiny. These
+   wrappers crop the surrounding padding by scaling the centered image inside a
+   fixed, overflow-hidden box (content fraction ≈ 418/2048 → scale ×4.9).
+   ========================================================================= */
+.brand-logo {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.brand-logo img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: auto;
+  max-width: none;
+}
+.brand-logo--header { height: 34px; width: 138px; }
+.brand-logo--header img { height: 167px; }
+.brand-logo--mobile { height: 30px; width: 122px; }
+.brand-logo--mobile img { height: 147px; }
+.brand-logo--hero { height: 88px; width: 354px; max-width: 100%; }
+.brand-logo--hero img { height: 431px; }
 

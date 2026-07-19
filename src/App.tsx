@@ -9,8 +9,12 @@ import Dashboard from "./pages/Dashboard";
 import UserManagement from "./pages/UserManagement";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import Onboarding from "./pages/Onboarding";
 import NotificationsPage from "./pages/NotificationsPage";
+import ConversationsPage from "./pages/ConversationsPage";
+import CollectionsPage from "./pages/CollectionsPage";
+import AiChatPage from "./pages/AiChatPage";
 import ProfilePage from "./pages/ProfilePage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Settings from "./components/Settings";
@@ -23,6 +27,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
           {/* Authenticated but org not required yet */}
           <Route
@@ -30,6 +35,17 @@ function App() {
             element={
               <ProtectedRoute requireOrg={false}>
                 <Onboarding />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/collections"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CollectionsPage />
+                </Layout>
               </ProtectedRoute>
             }
           />
@@ -62,6 +78,28 @@ function App() {
               <ProtectedRoute>
                 <Layout>
                   <NotificationsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/conversations"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <ConversationsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/ai"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AiChatPage />
                 </Layout>
               </ProtectedRoute>
             }
